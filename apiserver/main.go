@@ -15,7 +15,7 @@ type ServerArgs struct {
 	Seeds []string
 }
 
-func Init() {
+func Init() error {
 	var args ServerArgs
 	arg.MustParse(&args)
 
@@ -25,16 +25,14 @@ func Init() {
 
 	seeds, err := iface.ParseAddresses(args.Seeds, iface.UDP)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
-	dht := &sdht.SDHT{}
-	err = dht.Init(seeds)
-	if err != nil {
-		fmt.Println(err)
-		return
+	dhtInst := &sdht.SDHT{}
+	if err = dhtInst.Init(seeds); err != nil {
+		return err
 	}
+	StartAPIServer(args, dhtInst, &net.Net{})
 
-	StartAPIServer(args, dht, &net.Net{})
+	return nil
 }
