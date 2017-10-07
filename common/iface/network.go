@@ -1,17 +1,17 @@
-package network
+package iface
 
-type Protocol int
+type Proto int
 
 const (
-	TCP Protocol = 1 + iota
+	TCP Proto = iota
 	UDP
 	HTTP
 )
 
 type Address struct {
-	IP       string
-	Port     int
-	Protocol Protocol
+	IP    string
+	Port  int
+	Proto Proto
 }
 
 type Network interface {

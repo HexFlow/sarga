@@ -1,10 +1,10 @@
 package dht
 
-import "github.com/sakshamsharma/sarga/common/network"
+import "github.com/sakshamsharma/sarga/common/iface"
 
 // DHTPeer wraps interactions with the peers of a DHT.
 type DHTPeer struct {
-	Addr network.Address
+	Addr iface.Address
 }
 
 func Ping() error {
@@ -15,7 +15,7 @@ func SendStore(key string, data []byte) error {
 	return nil
 }
 
-func FindNode() []network.Address {
+func FindNode() []iface.Address {
 	return nil
 }
 

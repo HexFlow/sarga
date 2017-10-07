@@ -2,7 +2,7 @@ package sdht
 
 import (
 	"github.com/sakshamsharma/sarga/common/dht"
-	"github.com/sakshamsharma/sarga/common/network"
+	"github.com/sakshamsharma/sarga/common/iface"
 )
 
 // SDHT is a minimal implementation of a DHT (dht.DHT) to be used with sarga.
@@ -11,7 +11,7 @@ type SDHT struct {
 
 var _ dht.DHT = &SDHT{}
 
-func (d *SDHT) Init(seeds []network.Address) error {
+func (d *SDHT) Init(seeds []iface.Address) error {
 	return nil
 }
 

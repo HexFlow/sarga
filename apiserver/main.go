@@ -4,14 +4,13 @@ import (
 	"fmt"
 
 	arg "github.com/alexflint/go-arg"
-	"github.com/sakshamsharma/sarga/common/cli"
-	"github.com/sakshamsharma/sarga/common/network"
-	"github.com/sakshamsharma/sarga/net"
-	"github.com/sakshamsharma/sarga/sdht"
+	"github.com/sakshamsharma/sarga/common/iface"
+	"github.com/sakshamsharma/sarga/impl/net"
+	"github.com/sakshamsharma/sarga/impl/sdht"
 )
 
 type ServerArgs struct {
-	cli.CommonArgs
+	iface.CommonArgs
 
 	Seeds []string
 }
@@ -24,7 +23,7 @@ func Init() {
 		fmt.Println(seed)
 	}
 
-	seeds, err := network.ParseAddresses(args.Seeds, network.UDP)
+	seeds, err := iface.ParseAddresses(args.Seeds, iface.UDP)
 	if err != nil {
 		fmt.Println(err)
 		return

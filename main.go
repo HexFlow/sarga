@@ -6,11 +6,11 @@ import (
 	"github.com/alexflint/go-arg"
 
 	"github.com/sakshamsharma/sarga/apiserver"
-	"github.com/sakshamsharma/sarga/common/cli"
+	"github.com/sakshamsharma/sarga/common/iface"
 )
 
 func main() {
-	var runType cli.CommonArgs
+	var runType iface.CommonArgs
 	arg.Parse(&runType)
 
 	switch runType.Type {

@@ -1,29 +1,27 @@
-package network
+package iface
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/sakshamsharma/sarga/common"
 )
 
-func GetAddress(ip string, port int, protocol Protocol) Address {
+func GetAddress(ip string, port int, proto Proto) Address {
 	return Address{
-		IP:       ip,
-		Port:     port,
-		Protocol: protocol,
+		IP:    ip,
+		Port:  port,
+		Proto: proto,
 	}
 }
 
-func ParseAddress(addr string, protocol Protocol) (Address, error) {
+func ParseAddress(addr string, proto Proto) (Address, error) {
 	chunks := strings.SplitN(addr, ":", 2)
 
 	var ip = chunks[0]
 
 	var port int
 	if len(chunks) == 1 {
-		port = common.DefaultPort
+		port = DefaultPort
 	} else {
 		var err error
 		port, err = strconv.Atoi(chunks[1])
@@ -33,16 +31,16 @@ func ParseAddress(addr string, protocol Protocol) (Address, error) {
 	}
 
 	return Address{
-		IP:       ip,
-		Port:     port,
-		Protocol: protocol,
+		IP:    ip,
+		Port:  port,
+		Proto: proto,
 	}, nil
 }
 
-func ParseAddresses(addrs []string, protocol Protocol) ([]Address, error) {
+func ParseAddresses(addrs []string, proto Proto) ([]Address, error) {
 	result := []Address{}
 	for _, addr := range addrs {
-		parsed, err := ParseAddress(addr, protocol)
+		parsed, err := ParseAddress(addr, proto)
 		if err != nil {
 			return nil, err
 		}
