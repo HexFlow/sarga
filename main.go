@@ -17,7 +17,7 @@ func main() {
 	case "":
 		fmt.Printf("missing --type=<TYPE>, please select a type among daemon, proxy, CLI\n")
 	case "server":
-		apiserver.StartServer()
+		apiserver.Init()
 	default:
 		fmt.Printf("invalid type used to initialize sargo: %q\n", runType.Type)
 	}

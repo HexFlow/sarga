@@ -3,21 +3,13 @@ package apiserver
 import (
 	"fmt"
 
-	arg "github.com/alexflint/go-arg"
-	"github.com/sakshamsharma/sarga/common/cli"
+	"github.com/sakshamsharma/sarga/common/dht"
+	"github.com/sakshamsharma/sarga/common/network"
 )
 
-type ServerArgs struct {
-	cli.CommonArgs
-
-	Seeds []string
-}
-
-func StartServer() {
-	var args ServerArgs
-	arg.MustParse(&args)
-
-	for _, seed := range args.Seeds {
-		fmt.Println(peer)
+func StartAPIServer(args ServerArgs, dht dht.DHT, net network.Network) {
+	err := net.Listen(network.GetAddress(args.IP, args.Port, args.Protocol))
+	if err != nil {
+		fmt.Println(err)
 	}
 }

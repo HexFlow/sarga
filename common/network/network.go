@@ -1,6 +1,7 @@
 package network
 
 type Protocol int
+
 const (
 	TCP Protocol = 1 + iota
 	UDP
@@ -8,11 +9,12 @@ const (
 )
 
 type Address struct {
-	IP string
-	Port Int
+	IP       string
+	Port     int
 	Protocol Protocol
 }
 
 type Network interface {
-	SendMessage(addr Address)
+	SendMessage(addr Address, data []byte) error
+	Listen(addr Address) error
 }
