@@ -1,7 +1,8 @@
 package sdht
 
 import (
-	"fmt"
+	"encoding/json"
+	"errors"
 	"log"
 	"net"
 
@@ -10,18 +11,22 @@ import (
 
 // SDHT is a minimal implementation of a DHT (dht.DHT) to be used with sarga.
 type SDHT struct {
-	peers []Peer
-
+	id      ID
 	buckets buckets
 
-	listen net.Listener
+	listen *net.Listener
 
 	shutdown chan bool
 }
 
-func (d *SDHT) Init(id ID, seeds []iface.Address) error {
+var network iface.Net
+
+func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
+	d.id = genId()
+	network = net
+
 	for _, seed := range seeds {
-		root := Peer{seed}
+		root := &Peer{ID{}, seed}
 		if err := root.Ping(); err != nil {
 			continue
 		}
@@ -36,21 +41,13 @@ func (d *SDHT) Init(id ID, seeds []iface.Address) error {
 		}
 
 		// TODO: Somehow insert the root node into buckets as well.
-		// We do not knows its ID.
+		// We do not know its ID.
 
 		d.shutdown = make(chan bool)
 		go d.serve()
 		return nil
 	}
-	return fmt.Errorf("no provided seed completed initial connection")
-}
-
-func (d *SDHT) FindValue(key string) ([]byte, error) {
-	return nil, nil
-}
-
-func (d *SDHT) StoreValue(key string, data []byte) error {
-	return nil
+	return errors.New("no provided seed completed initial connection")
 }
 
 func (d *SDHT) ShutDown() {
@@ -61,10 +58,71 @@ func (d *SDHT) ShutDown() {
 	d.listen.Close()
 }
 
+func (d *SDHT) Respond(action string, data []byte) []byte {
+	var out []byte
+	var err error
+	switch action {
+	case "find_value":
+		req := findValueReq{}
+		if err := json.Unmarshal(data, &req); err != nil {
+			return marshal(findValueResp{Error: err})
+		}
+		setAlive(req.ID)
+		out, err = d.FindValue(req.Key)
+		if err != nil {
+			return marshal(findValueResp{Error: err})
+		}
+		return marshal(findValueResp{Data: out})
+
+	case "find_node":
+		req := findNodeReq{}
+		if err := json.Unmarshal(data, &req); err != nil {
+			return marshal(findNodeResp{Error: err})
+		}
+		setAlive(req.ID)
+		peers, err := d.FindNode(req.FindID)
+		if err != nil {
+			return marshal(findNodeResp{Error: err})
+		}
+		return marshal(findNodeResp{Peers: peers})
+
+	case "store":
+		req := storeReq{}
+		if err := json.Unmarshal(data, &req); err != nil {
+			log.Println(err)
+			return nil
+		}
+		setAlive(req.ID)
+		d.Store(req.Key, req.Data)
+
+	case "exit":
+		req := exitReq{}
+		if err := json.Unmarshal(data, &req); err != nil {
+			log.Println(err)
+			return nil
+		}
+		d.Exit(req.ID)
+
+	default:
+		log.Println("Request not recognized.")
+	}
+	return nil
+}
+
+func (d *SDHT) FindValue(key string) ([]byte, error) {
+	return nil, nil
+}
+
+func (d *SDHT) StoreValue(key string, data []byte) error {
+	return nil
+}
+
+// TODO: Move this to apiserver
 func (d *SDHT) serve() {
 	listen, err := net.Listen("tcp", "0.0.0.0:6779")
 	if err != nil {
-		log.Fatalf("Failed to open listening socket: %s", err)
+		log.Printf("Failed to open listening socket: %s", err)
+		return
 	}
 	d.listen = listen
 
@@ -83,8 +141,4 @@ func (d *SDHT) serve() {
 			log.Printf("Responding to connection failed: %v", err)
 		}
 	}
-}
-
-func (d *SDHT) respond(conn net.Conn) error {
-	return nil
 }
