@@ -13,17 +13,16 @@ type Peer struct {
 }
 
 func (p *Peer) Ping() error {
-	id, err := network.Get(p.addr, "ping")
+	resp, err := network.Get(p.addr, "ping")
 	if err != nil {
 		return err
 	}
-
-	parsedID, err = unmarshalID(id)
-	if err != nil {
+	ret := findNodeResp{}
+	if err := json.Unmarshal(resp, &ret); err != nil {
 		return err
 	}
 
-	p.id = parsedID
+	p.id = ret.ID
 	return nil
 }
 
@@ -41,10 +40,13 @@ func (p *Peer) FindNode(id ID) ([]Peer, error) {
 	req := findNodeReq{p.id, id}
 	bytes, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resp, err := network.Post(p.addr, "find_node", bytes)
+	if err != nil {
+		return nil, err
+	}
 	ret := findNodeResp{}
 	if err := json.Unmarshal(resp, &ret); err != nil {
 		return nil, err
@@ -55,22 +57,25 @@ func (p *Peer) FindNode(id ID) ([]Peer, error) {
 	return ret.Peers, nil
 }
 
-func (p *Peer) FindValue(key string) ([]byte, error) {
+func (p *Peer) FindValue(key string) ([]byte, []Peer, error) {
 	req := findValueReq{p.id, key}
 	bytes, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	resp, err := network.Post(p.addr, "find_value", bytes)
+	if err != nil {
+		return nil, nil, err
+	}
 	ret := findValueResp{}
 	if err := json.Unmarshal(resp, &ret); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if ret.Error != nil {
-		return nil, ret.Error
+		return nil, nil, ret.Error
 	}
-	return ret.Data, nil
+	return ret.Data, ret.Peers, nil
 }
 
 func (p *Peer) AnnounceExit() error {

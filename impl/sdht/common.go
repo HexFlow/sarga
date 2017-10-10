@@ -9,6 +9,7 @@ import (
 )
 
 const k = 20
+const numBuckets = 160
 
 // ID is the representation of the type used for the key in the DHT.
 type ID [20]byte
@@ -59,7 +60,13 @@ func (b *bucket) insert(node Peer) {
 }
 
 // buckets is the underlying struct which handles the creation and deletion of buckets.
-type buckets []bucket
+type buckets [numBuckets]bucket
 
-func (b *buckets) insert(node Peer) {
+func (b *buckets) insert(owner ID, node Peer) {
+	for i := 0; i < numBuckets; i++ {
+		if node.ID[i] != owner[i] {
+			b.buckets[i].insert(node)
+			return
+		}
+	}
 }

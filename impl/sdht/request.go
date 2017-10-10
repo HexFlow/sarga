@@ -24,8 +24,13 @@ type findValueReq struct {
 type findValueResp struct {
 	Error error
 	Data  []byte
+	Peers []Peer
 }
 
 type exitReq struct {
+	ID ID
+}
+
+type pingResp struct {
 	ID ID
 }

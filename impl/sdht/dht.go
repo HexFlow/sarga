@@ -13,6 +13,7 @@ import (
 type SDHT struct {
 	id      ID
 	buckets buckets
+	store   Storage
 
 	listen *net.Listener
 
@@ -23,7 +24,9 @@ var network iface.Net
 
 func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 	d.id = genId()
+	d.store = make(Storage)
 	network = net
+	d.buckets.ownerID = d.id
 
 	for _, seed := range seeds {
 		root := &Peer{ID{}, seed}
@@ -62,25 +65,28 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 	var out []byte
 	var err error
 	switch action {
+	case "ping":
+		return marshal(pingResp{ID: d.id})
+
 	case "find_value":
 		req := findValueReq{}
 		if err := json.Unmarshal(data, &req); err != nil {
 			return marshal(findValueResp{Error: err})
 		}
-		setAlive(req.ID)
-		out, err = d.FindValue(req.Key)
+		d.setAlive(req.ID)
+		out, peers, err := d.findValue(req.Key)
 		if err != nil {
 			return marshal(findValueResp{Error: err})
 		}
-		return marshal(findValueResp{Data: out})
+		return marshal(findValueResp{Data: out, Peers: peers})
 
 	case "find_node":
 		req := findNodeReq{}
 		if err := json.Unmarshal(data, &req); err != nil {
 			return marshal(findNodeResp{Error: err})
 		}
-		setAlive(req.ID)
-		peers, err := d.FindNode(req.FindID)
+		d.setAlive(req.ID)
+		peers, err := d.findNode(req.FindID)
 		if err != nil {
 			return marshal(findNodeResp{Error: err})
 		}
@@ -92,8 +98,8 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 			log.Println(err)
 			return nil
 		}
-		setAlive(req.ID)
-		d.Store(req.Key, req.Data)
+		d.setAlive(req.ID)
+		d.store(req.Key, req.Data)
 
 	case "exit":
 		req := exitReq{}
@@ -109,12 +115,23 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 	return nil
 }
 
+func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
+	if val, err := d.store.Get(key); err == nil {
+		return val, nil, nil
+	}
+	if peers, err := d.findNode(key); err == nil {
+		return nil, peers, nil
+	} else {
+		return nil, nil, err
+	}
+}
+
 func (d *SDHT) FindValue(key string) ([]byte, error) {
-	return nil, nil
+	return d.store.Get(key)
 }
 
 func (d *SDHT) StoreValue(key string, data []byte) error {
-	return nil
+	return d.store.Set(key, data)
 }
 
 // TODO: Move this to apiserver
