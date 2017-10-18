@@ -15,7 +15,8 @@ type SDHT struct {
 	buckets buckets
 	store   Storage
 
-	listen *net.Listener
+	// net.Listener is an interface, so no need to use pointer.
+	listen net.Listener
 
 	shutdown chan bool
 }
@@ -26,7 +27,6 @@ func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 	d.id = genId()
 	d.store = make(Storage)
 	network = net
-	d.buckets.ownerID = d.id
 
 	for _, seed := range seeds {
 		root := &Peer{ID{}, seed}
@@ -34,13 +34,13 @@ func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 			continue
 		}
 
-		nodes, err := root.FindNode(id)
+		nodes, err := root.FindNode(d.id)
 		if err != nil {
 			continue
 		}
 
 		for _, node := range nodes {
-			d.buckets.insert(node)
+			d.buckets.insert(d.id, node)
 		}
 
 		// TODO: Somehow insert the root node into buckets as well.
@@ -99,7 +99,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 			return nil
 		}
 		d.setAlive(req.ID)
-		d.store(req.Key, req.Data)
+		d.store.Set(req.Key, []byte(req.Data))
 
 	case "exit":
 		req := exitReq{}

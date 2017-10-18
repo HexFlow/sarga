@@ -4,8 +4,6 @@ import "errors"
 
 type Storage map[string][]byte
 
-var store Storage
-
 func (s Storage) Get(key string) ([]byte, error) {
 	if val, ok := s[key]; ok {
 		return val, nil

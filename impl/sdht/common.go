@@ -65,7 +65,7 @@ type buckets [numBuckets]bucket
 func (b *buckets) insert(owner ID, node Peer) {
 	for i := 0; i < numBuckets; i++ {
 		if node.ID[i] != owner[i] {
-			b.buckets[i].insert(node)
+			b[i].insert(node)
 			return
 		}
 	}

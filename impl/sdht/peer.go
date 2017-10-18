@@ -13,37 +13,37 @@ type Peer struct {
 }
 
 func (p *Peer) Ping() error {
-	resp, err := network.Get(p.addr, "ping")
+	resp, err := network.Get(p.Addr, "ping")
 	if err != nil {
 		return err
 	}
-	ret := findNodeResp{}
+	ret := pingResp{}
 	if err := json.Unmarshal(resp, &ret); err != nil {
 		return err
 	}
 
-	p.id = ret.ID
+	p.ID = ret.ID
 	return nil
 }
 
 func (p *Peer) SendStore(key string, data []byte) error {
 	// TODO: Validate key
-	keyValue := storeReq{p.id, key, string(data)}
+	keyValue := storeReq{p.ID, key, string(data)}
 	bytes, err := json.Marshal(keyValue)
 	if err != nil {
 		return err
 	}
-	return network.Put(p.addr, "store", bytes)
+	return network.Put(p.Addr, "store", bytes)
 }
 
 func (p *Peer) FindNode(id ID) ([]Peer, error) {
-	req := findNodeReq{p.id, id}
+	req := findNodeReq{p.ID, id}
 	bytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := network.Post(p.addr, "find_node", bytes)
+	resp, err := network.Post(p.Addr, "find_node", bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -58,13 +58,13 @@ func (p *Peer) FindNode(id ID) ([]Peer, error) {
 }
 
 func (p *Peer) FindValue(key string) ([]byte, []Peer, error) {
-	req := findValueReq{p.id, key}
+	req := findValueReq{p.ID, key}
 	bytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	resp, err := network.Post(p.addr, "find_value", bytes)
+	resp, err := network.Post(p.Addr, "find_value", bytes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -79,10 +79,10 @@ func (p *Peer) FindValue(key string) ([]byte, []Peer, error) {
 }
 
 func (p *Peer) AnnounceExit() error {
-	req := exitReq{p.id}
+	req := exitReq{p.ID}
 	bytes, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
-	return network.Put(p.addr, "exit", bytes)
+	return network.Put(p.Addr, "exit", bytes)
 }

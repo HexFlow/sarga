@@ -14,7 +14,10 @@ type Address struct {
 	Proto Proto
 }
 
-type Network interface {
+type Net interface {
+	Get(addr Address, path string) ([]byte, error)
+	Put(addr Address, path string, data []byte) error
+	Post(addr Address, path string, data []byte) ([]byte, error)
 	SendMessage(addr Address, data []byte) error
 	Listen(addr Address) error
 }
