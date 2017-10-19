@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sakshamsharma/sarga/common/iface"
+	"github.com/sakshamsharma/sarga/impl/httpnet"
 )
 
 // SDHT is a minimal implementation of a DHT (dht.DHT) to be used with sarga.
@@ -19,7 +20,7 @@ type SDHT struct {
 	shutdown chan bool
 }
 
-var network iface.Net
+var network iface.Net = &httpnet.HTTPNet{}
 
 func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 	d.id = genId()
