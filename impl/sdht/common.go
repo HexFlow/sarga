@@ -59,14 +59,51 @@ func (b *bucket) insert(node Peer) {
 	*b = append(*b, node)
 }
 
+func (b *bucket) del(id ID) {
+	index := -1
+	result := []Peer{}
+	for i, elem := range *b {
+		if elem.ID != id {
+			result = append(result, elem)
+		}
+	}
+	*b = result
+}
+
 // buckets is the underlying struct which handles the creation and deletion of buckets.
-type buckets [numBuckets]bucket
+type buckets struct {
+	bs    [numBuckets]bucket
+	count int
+
+	// Use a pointer so it is possible to check it against nil.
+	replacement *Peer
+}
 
 func (b *buckets) insert(owner ID, node Peer) {
+	if b.count >= k {
+		b.replacement = &node
+		return
+	}
 	for i := 0; i < numBuckets; i++ {
 		if node.ID[i] != owner[i] {
-			b[i].insert(node)
+			b.bs[i].insert(node)
+			b.count++
 			return
 		}
+	}
+}
+
+func (b *buckets) replace(owner ID, id ID) {
+	for i := 0; i < numBuckets; i++ {
+		if id[i] != owner[i] {
+			b.bs[i].del(id)
+			b.count--
+			break
+		}
+	}
+	if b.replacement != nil {
+		replacement := *b.replacement
+		b.replacement = nil
+		b.insert(owner, replacement)
 	}
 }

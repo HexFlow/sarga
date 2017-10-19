@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"net"
+	"time"
 
 	"github.com/sakshamsharma/sarga/common/iface"
 )
@@ -14,9 +14,7 @@ type SDHT struct {
 	id      ID
 	buckets buckets
 	store   Storage
-
-	// net.Listener is an interface, so no need to use pointer.
-	listen net.Listener
+	alive   map[ID]int
 
 	shutdown chan bool
 }
@@ -54,11 +52,7 @@ func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 }
 
 func (d *SDHT) ShutDown() {
-	if d.listen == nil {
-		return
-	}
 	d.shutdown <- true
-	d.listen.Close()
 }
 
 func (d *SDHT) Respond(action string, data []byte) []byte {
@@ -107,7 +101,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 			log.Println(err)
 			return nil
 		}
-		d.Exit(req.ID)
+		d.recordExit(req.ID)
 
 	default:
 		log.Println("Request not recognized.")
@@ -115,47 +109,62 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 	return nil
 }
 
-func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
-	if val, err := d.store.Get(key); err == nil {
-		return val, nil, nil
-	}
-	if peers, err := d.findNode(key); err == nil {
-		return nil, peers, nil
-	} else {
-		return nil, nil, err
-	}
-}
-
-func (d *SDHT) FindValue(key string) ([]byte, error) {
-	return d.store.Get(key)
-}
-
 func (d *SDHT) StoreValue(key string, data []byte) error {
 	return d.store.Set(key, data)
 }
 
-// TODO: Move this to apiserver
-func (d *SDHT) serve() {
-	listen, err := net.Listen("tcp", "0.0.0.0:6779")
-	if err != nil {
-		log.Printf("Failed to open listening socket: %s", err)
-		return
+func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
+	if val, err := d.store.Get(key); err == nil {
+		return val, nil, nil
 	}
-	d.listen = listen
+	peers, err := d.findNode(key)
+	if err == nil {
+		return nil, peers, nil
+	}
+	return nil, nil, err
+}
 
-	for {
-		conn, err := d.listen.Accept()
-		if err != nil {
-			select {
-			case <-d.shutdown:
-				return
-			default:
-				log.Printf("Accept failed: %v", err)
-			}
-		}
-		err = d.respond(conn)
-		if err != nil {
-			log.Printf("Responding to connection failed: %v", err)
-		}
-	}
+func (d *SDHT) findNode(key string) ([]Peer, error) {
+}
+
+func (d *SDHT) setAlive(id ID) {
+	d.alive[id] = int(time.Now().Unix())
+}
+
+func (d *SDHT) recordExit(id ID) {
+	delete(d.alive, id)
+	d.buckets.replace(d.id, id)
+}
+
+// TODO: Move this to apiserver
+func (d *SDHT) serve() error {
+	return network.Listen(iface.Address{
+		IP:    "0.0.0.0",
+		Port:  6779,
+		Proto: iface.TCP,
+	}, d.Respond, d.shutdown)
+
+	// listen, err := net.Listen("tcp", "0.0.0.0:6779")
+	// if err != nil {
+	// 	log.Printf("Failed to open listening socket: %s", err)
+	// 	return
+	// }
+	// d.listen = listen
+
+	// for {
+	// 	conn, err := d.listen.Accept()
+	// 	if err != nil {
+	// 		select {
+	// 		case <-d.shutdown:
+	// 			return
+	// 		default:
+	// 			log.Printf("Accept failed: %v", err)
+	// 		}
+	// 	}
+	// 	// TODO: Make this work
+	// 	// err = d.respond(conn)
+	// 	// if err != nil {
+	// 	// 	log.Printf("Responding to connection failed: %v", err)
+	// 	// }
+	// }
 }
