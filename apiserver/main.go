@@ -5,7 +5,6 @@ import (
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/sakshamsharma/sarga/common/iface"
-	"github.com/sakshamsharma/sarga/impl/net"
 	"github.com/sakshamsharma/sarga/impl/sdht"
 )
 
@@ -32,7 +31,7 @@ func Init() error {
 	if err = dhtInst.Init(seeds); err != nil {
 		return err
 	}
-	StartAPIServer(args, dhtInst, &net.Net{})
+	StartAPIServer(args, dhtInst)
 
 	return nil
 }

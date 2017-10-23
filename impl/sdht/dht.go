@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/sakshamsharma/sarga/common/dht"
 	"github.com/sakshamsharma/sarga/common/iface"
-	"github.com/sakshamsharma/sarga/impl/httpnet"
 )
 
 // SDHT is a minimal implementation of a DHT (dht.DHT) to be used with sarga.
@@ -20,7 +20,9 @@ type SDHT struct {
 	shutdown chan bool
 }
 
-var network iface.Net = &httpnet.HTTPNet{}
+var _ dht.DHT = &SDHT{}
+
+var network iface.Net
 
 func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 	d.id = genId()
@@ -52,13 +54,11 @@ func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 	return errors.New("no provided seed completed initial connection")
 }
 
-func (d *SDHT) ShutDown() {
+func (d *SDHT) Shutdown() {
 	d.shutdown <- true
 }
 
 func (d *SDHT) Respond(action string, data []byte) []byte {
-	var out []byte
-	var err error
 	switch action {
 	case "ping":
 		return marshal(pingResp{ID: d.id})
@@ -81,7 +81,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 			return marshal(findNodeResp{Error: err})
 		}
 		d.setAlive(req.ID)
-		peers, err := d.findNode(req.FindID)
+		peers, err := d.findNode(marshalID(req.FindID))
 		if err != nil {
 			return marshal(findNodeResp{Error: err})
 		}
@@ -114,6 +114,11 @@ func (d *SDHT) StoreValue(key string, data []byte) error {
 	return d.store.Set(key, data)
 }
 
+func (d *SDHT) FindValue(key string) ([]byte, error) {
+	// TODO
+	return nil, nil
+}
+
 func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
 	if val, err := d.store.Get(key); err == nil {
 		return val, nil, nil
@@ -126,6 +131,8 @@ func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
 }
 
 func (d *SDHT) findNode(key string) ([]Peer, error) {
+	// TODO
+	return nil, nil
 }
 
 func (d *SDHT) setAlive(id ID) {

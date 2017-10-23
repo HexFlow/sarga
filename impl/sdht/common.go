@@ -1,7 +1,7 @@
 package sdht
 
 import (
-	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -15,7 +15,7 @@ const numBuckets = 160
 type ID [20]byte
 
 func unmarshalID(id string) (ID, error) {
-	idDecoded, err := base64.StdEncoding.DecodeString(id)
+	idDecoded, err := hex.DecodeString(id)
 	if err != nil {
 		return ID{}, err
 	}
@@ -31,7 +31,7 @@ func unmarshalID(id string) (ID, error) {
 }
 
 func marshalID(id ID) string {
-	return base64.StdEncoding.EncodeToString(id[:])
+	return hex.EncodeToString(id[:])
 }
 
 func marshal(data interface{}) []byte {
@@ -60,9 +60,8 @@ func (b *bucket) insert(node Peer) {
 }
 
 func (b *bucket) del(id ID) {
-	index := -1
 	result := []Peer{}
-	for i, elem := range *b {
+	for _, elem := range *b {
 		if elem.ID != id {
 			result = append(result, elem)
 		}
