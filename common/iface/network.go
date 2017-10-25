@@ -24,9 +24,8 @@ func (p *Proto) ToString() string {
 }
 
 type Address struct {
-	IP    string
-	Port  int
-	Proto Proto
+	IP   string
+	Port int
 }
 
 func (a *Address) ToString() string {

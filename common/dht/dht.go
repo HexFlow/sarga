@@ -9,4 +9,8 @@ type DHT interface {
 	FindValue(key string) ([]byte, error)
 	StoreValue(key string, data []byte) error
 	Shutdown()
+
+	// Respond consumes a path and data, and returns the serialized response.
+	// Helpful for unit tests.
+	Respond(string, []byte) []byte
 }

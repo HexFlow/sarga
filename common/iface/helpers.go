@@ -6,15 +6,14 @@ import (
 	"strings"
 )
 
-func GetAddress(ip string, port int, proto Proto) Address {
+func GetAddress(ip string, port int) Address {
 	return Address{
-		IP:    ip,
-		Port:  port,
-		Proto: proto,
+		IP:   ip,
+		Port: port,
 	}
 }
 
-func ParseAddress(addr string, proto Proto) (Address, error) {
+func ParseAddress(addr string) (Address, error) {
 	chunks := strings.SplitN(addr, ":", 2)
 
 	var ip = chunks[0]
@@ -31,16 +30,15 @@ func ParseAddress(addr string, proto Proto) (Address, error) {
 	}
 
 	return Address{
-		IP:    ip,
-		Port:  port,
-		Proto: proto,
+		IP:   ip,
+		Port: port,
 	}, nil
 }
 
-func ParseAddresses(addrs []string, proto Proto) ([]Address, error) {
+func ParseAddresses(addrs []string) ([]Address, error) {
 	result := []Address{}
 	for _, addr := range addrs {
-		parsed, err := ParseAddress(addr, proto)
+		parsed, err := ParseAddress(addr)
 		if err != nil {
 			return nil, err
 		}

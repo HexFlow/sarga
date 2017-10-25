@@ -33,6 +33,7 @@ func (p *Peer) SendStore(key string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	// TODO: Errors will be ignored. Handle errors for PUT.
 	return network.Put(p.Addr, "store", bytes)
 }
 

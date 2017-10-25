@@ -22,6 +22,7 @@ type SDHT struct {
 
 var _ dht.DHT = &SDHT{}
 
+// TODO: This should not remain global if we want to allow multiple instances of SDHT.
 var network iface.Net
 
 func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
