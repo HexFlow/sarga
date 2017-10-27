@@ -26,9 +26,9 @@ func (p *Peer) Ping() error {
 	return nil
 }
 
-func (p *Peer) SendStore(key string, data []byte) error {
+func (p *Peer) SendStore(id ID, key string, data []byte) error {
 	// TODO: Validate key
-	keyValue := storeReq{p.ID, key, string(data)}
+	keyValue := storeReq{id, key, string(data)}
 	bytes, err := json.Marshal(keyValue)
 	if err != nil {
 		return err
@@ -38,8 +38,8 @@ func (p *Peer) SendStore(key string, data []byte) error {
 }
 
 // TODO(pallavag): Make all calls async.
-func (p *Peer) FindNode(key string) ([]Peer, error) {
-	req := findNodeReq{p.ID, key}
+func (p *Peer) FindNode(asker Peer, key string) ([]Peer, error) {
+	req := findNodeReq{asker, key}
 	bytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -59,8 +59,8 @@ func (p *Peer) FindNode(key string) ([]Peer, error) {
 	return ret.Peers, nil
 }
 
-func (p *Peer) FindValue(key string) ([]byte, []Peer, error) {
-	req := findValueReq{p.ID, key}
+func (p *Peer) FindValue(id ID, key string) ([]byte, []Peer, error) {
+	req := findValueReq{id, key}
 	bytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, nil, err

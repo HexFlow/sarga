@@ -15,13 +15,18 @@ const numBuckets = 160
 // ID is the representation of the type used for the key in the DHT.
 type ID [20]byte
 
+func (id ID) String() string {
+	return marshalID(id)
+}
+
 func unmarshalID(id string) (ID, error) {
 	idDecoded, err := hex.DecodeString(id)
 	if err != nil {
 		return ID{}, err
 	}
 	if len(idDecoded) != 20 {
-		return ID{}, fmt.Errorf("invalid ID, expected length 20, got: %d", len(idDecoded))
+		return ID{}, fmt.Errorf(
+			"invalid ID, expected length 20, got: %d", len(idDecoded))
 	}
 
 	result := ID{}
@@ -54,20 +59,20 @@ func genId() ID {
 }
 
 // bucket struct handles the list of nodes stored in each bucket.
-type bucket []Peer
+type bucket map[ID]Peer
 
 func (b *bucket) insert(node Peer) {
-	*b = append(*b, node)
+	if *b == nil {
+		*b = make(bucket)
+	}
+	(*b)[node.ID] = node
 }
 
 func (b *bucket) del(id ID) {
-	result := []Peer{}
-	for _, elem := range *b {
-		if elem.ID != id {
-			result = append(result, elem)
-		}
+	if *b == nil {
+		*b = make(bucket)
 	}
-	*b = result
+	delete(*b, id)
 }
 
 func (id ID) toBitString() string {
@@ -90,14 +95,10 @@ type buckets struct {
 func (b *buckets) insert(owner ID, node Peer) {
 	obits := owner.toBitString()
 	nbits := node.ID.toBitString()
-	if b.count >= dhtK {
-		b.replacement = &node
-		return
-	}
+
 	for i := 0; i < numBuckets; i++ {
 		if nbits[i] != obits[i] {
 			b.bs[i].insert(node)
-			b.count++
 			return
 		}
 	}
@@ -110,7 +111,6 @@ func (b *buckets) replace(owner ID, id ID) {
 	for i := 0; i < numBuckets; i++ {
 		if ibits[i] != obits[i] {
 			b.bs[i].del(id)
-			b.count--
 			break
 		}
 	}

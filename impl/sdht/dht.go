@@ -2,6 +2,7 @@ package sdht
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"sort"
 	"time"
@@ -13,6 +14,7 @@ import (
 // SDHT is a minimal implementation of a DHT (dht.DHT) to be used with sarga.
 type SDHT struct {
 	id      ID
+	addr    iface.Address
 	buckets buckets
 	store   Storage
 	alive   map[ID]int
@@ -22,7 +24,8 @@ type SDHT struct {
 
 var _ dht.DHT = &SDHT{}
 
-// TODO: This should not remain global if we want to allow multiple instances of SDHT.
+// TODO: This should not remain global if we want to allow multiple instances
+// of SDHT.
 var network iface.Net
 
 func min(a, b int) int {
@@ -32,10 +35,18 @@ func min(a, b int) int {
 	return b
 }
 
-func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
+func (d *SDHT) getPeer() Peer {
+	return Peer{
+		ID:   d.id,
+		Addr: d.addr,
+	}
+}
+
+func (d *SDHT) Init(addr iface.Address, seeds []iface.Address, net iface.Net) error {
 	d.id = genId()
 	d.store = make(Storage)
 	d.alive = map[ID]int{}
+	d.addr = addr
 	network = net
 
 	for _, seed := range seeds {
@@ -43,18 +54,10 @@ func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 		if err := root.Ping(); err != nil {
 			continue
 		}
+		// If ping was successful, root.ID should now be filled.
 
-		nodes, err := root.FindNode(marshalID(d.id))
-		if err != nil {
-			continue
-		}
-
-		for _, node := range nodes {
-			d.buckets.insert(d.id, node)
-		}
-
-		// TODO: Somehow insert the root node into buckets as well.
-		// We do not know its ID.
+		d.buckets.insert(d.id, *root)
+		d.findClosestPeers(marshalID(d.id), true)
 
 		d.shutdown = make(chan bool)
 		go d.serve()
@@ -79,7 +82,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 		if err := json.Unmarshal(data, &req); err != nil {
 			return marshal(findValueResp{Error: err})
 		}
-		d.setAlive(req.ID)
+		d.setAliveTime(req.ID)
 		out, peers, err := d.findValue(req.Key)
 		if err != nil {
 			return marshal(findValueResp{Error: err})
@@ -91,7 +94,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 		if err := json.Unmarshal(data, &req); err != nil {
 			return marshal(findNodeResp{Error: err})
 		}
-		d.setAlive(req.ID)
+		d.setAlive(req.Asker)
 		peers, err := d.findNode(req.Key)
 		if err != nil {
 			return marshal(findNodeResp{Error: err})
@@ -104,7 +107,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 			log.Println(err)
 			return nil
 		}
-		d.setAlive(req.ID)
+		d.setAliveTime(req.ID)
 		d.store.Set(req.Key, []byte(req.Data))
 
 	case "exit":
@@ -121,7 +124,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 	return nil
 }
 
-func (d *SDHT) findClosestPeers(key string) ([]Peer, error) {
+func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 	keyID, _ := unmarshalID(key)
 	peers, err := d.findNode(key)
 	if err != nil {
@@ -135,7 +138,10 @@ func (d *SDHT) findClosestPeers(key string) ([]Peer, error) {
 	for {
 		hopPeers := []Peer{}
 		for _, p := range peers {
-			peersP, err := p.FindNode(key)
+			if insert {
+				d.buckets.insert(d.id, p)
+			}
+			peersP, err := p.FindNode(d.getPeer(), key)
 			if err != nil {
 				log.Println("Error contacting peer:", err)
 			}
@@ -146,21 +152,34 @@ func (d *SDHT) findClosestPeers(key string) ([]Peer, error) {
 			return isBetter(keyID, hopPeers[i], hopPeers[j])
 		})
 
-		// TODO: This is wrong.
-		if !isBetter(keyID, hopPeers[0], peers[0]) {
-			return nil, nil
+		if !isBetterSlice(keyID, hopPeers, peers) {
+			break
 		}
 
 		peers = hopPeers[:min(len(hopPeers), dhtK)]
 	}
+
+	return peers[:min(len(peers), dhtK)], nil
 }
 
 func (d *SDHT) StoreValue(key string, data []byte) error {
-	// TODO: fill this function.
+	fmt.Println("StoreValue", marshalID(d.id), key, string(data))
+	peers, err := d.findClosestPeers(key, false)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range peers {
+		err := p.SendStore(d.id, key, data)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (d *SDHT) FindValue(key string) ([]byte, error) {
+	fmt.Println("FindValue", marshalID(d.id), key)
 	data, peers, err := d.findValue(key)
 	if err != nil {
 		return nil, err
@@ -177,7 +196,7 @@ func (d *SDHT) FindValue(key string) ([]byte, error) {
 	for {
 		hopPeers := []Peer{}
 		for _, p := range peers {
-			dataP, peersP, err := p.FindValue(key)
+			dataP, peersP, err := p.FindValue(d.id, key)
 			if dataP != nil {
 				return data, nil
 			}
@@ -191,7 +210,7 @@ func (d *SDHT) FindValue(key string) ([]byte, error) {
 			return isBetter(keyID, hopPeers[i], hopPeers[j])
 		})
 
-		if !isBetter(keyID, hopPeers[0], peers[0]) {
+		if !isBetterSlice(keyID, hopPeers, peers) {
 			return nil, nil
 		}
 
@@ -204,6 +223,19 @@ func (d *SDHT) FindValue(key string) ([]byte, error) {
 // isBetter returns true if peer1 is closer to key than peer2.
 func isBetter(key ID, peer1, peer2 Peer) bool {
 	return dist(peer1.ID, key) < dist(peer2.ID, key)
+}
+
+func isBetterSlice(key ID, peer1, peer2 []Peer) bool {
+	l := min(len(peer1), len(peer2))
+	for i := 0; i < l; i++ {
+		if dist(peer1[i].ID, key) < dist(peer2[i].ID, key) {
+			return true
+		}
+		if dist(peer1[i].ID, key) > dist(peer2[i].ID, key) {
+			return false
+		}
+	}
+	return (len(peer1) > len(peer2)) && (len(peer2) < dhtK)
 }
 
 // dist returns the distance between two keys.
@@ -219,6 +251,7 @@ func dist(id1, id2 ID) int {
 }
 
 func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
+	fmt.Println("findValue", marshalID(d.id), key)
 	if val, err := d.store.Get(key); err == nil {
 		return val, nil, nil
 	}
@@ -230,15 +263,19 @@ func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
 }
 
 func (d *SDHT) findNode(key string) ([]Peer, error) {
+	fmt.Println("findNode", marshalID(d.id), key)
 	buckets := d.buckets.bs
 	newBuckets := []Peer{}
 
 	// TODO(pallavag): Remove unsafe unmarshals.
 	keyID, _ := unmarshalID(key)
-	for _, b := range buckets {
-		newBuckets = append(newBuckets, b...)
+	for _, bs := range buckets {
+		for _, b := range bs {
+			newBuckets = append(newBuckets, b)
+		}
 	}
 
+	fmt.Println("Here", newBuckets)
 	sort.Slice(newBuckets, func(i, j int) bool {
 		return isBetter(keyID, newBuckets[i], newBuckets[j])
 	})
@@ -246,7 +283,12 @@ func (d *SDHT) findNode(key string) ([]Peer, error) {
 	return newBuckets[:min(len(newBuckets), dhtK)], nil
 }
 
-func (d *SDHT) setAlive(id ID) {
+func (d *SDHT) setAlive(peer Peer) {
+	d.alive[peer.ID] = int(time.Now().Unix())
+	d.buckets.insert(d.id, peer)
+}
+
+func (d *SDHT) setAliveTime(id ID) {
 	d.alive[id] = int(time.Now().Unix())
 }
 

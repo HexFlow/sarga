@@ -29,7 +29,8 @@ func Init() error {
 	}
 
 	dhtInst := &sdht.SDHT{}
-	if err = dhtInst.Init(seeds, &httpnet.HTTPNet{}); err != nil {
+	if err = dhtInst.Init(iface.Address{"0.0.0.0", 8080},
+		seeds, &httpnet.HTTPNet{}); err != nil {
 		return err
 	}
 	StartAPIServer(args, dhtInst)

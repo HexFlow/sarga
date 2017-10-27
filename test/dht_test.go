@@ -32,14 +32,14 @@ func TestDHT(t *testing.T) {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	nodeDHT := sdht.SDHT{}
-	nodeDHT.Init([]iface.Address{}, network)
 	addr := iface.Address{"0", 0}
+	nodeDHT.Init(addr, []iface.Address{}, network)
 	network.dhts[addr] = &nodeDHT
 
 	for i := 1; i < dhtCount; i++ {
 		nodeDHT := sdht.SDHT{}
-		nodeDHT.Init([]iface.Address{{strconv.Itoa(rand.Intn(i)), 0}}, network)
 		addr := iface.Address{strconv.Itoa(i), 0}
+		nodeDHT.Init(addr, []iface.Address{{strconv.Itoa(rand.Intn(i)), 0}}, network)
 		network.dhts[addr] = &nodeDHT
 	}
 
@@ -50,7 +50,7 @@ func TestDHT(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(v) != "hi" {
-		t.Fatal("Nope")
+		t.Fatal("Nope", string(v))
 	}
 	t.Fatal("COOL")
 }

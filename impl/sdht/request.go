@@ -7,8 +7,8 @@ type storeReq struct {
 }
 
 type findNodeReq struct {
-	ID  ID
-	Key string
+	Asker Peer
+	Key   string
 }
 
 type findNodeResp struct {
