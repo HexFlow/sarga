@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 )
 
-const k = 20
+const dhtK = 20
 const numBuckets = 160
 
 // ID is the representation of the type used for the key in the DHT.
@@ -69,6 +70,14 @@ func (b *bucket) del(id ID) {
 	*b = result
 }
 
+func (id ID) toBitString() string {
+	arr := []string{}
+	for _, b := range id {
+		arr = append(arr, fmt.Sprintf("%.8b", b))
+	}
+	return strings.Join(arr, "")
+}
+
 // buckets is the underlying struct which handles the creation and deletion of buckets.
 type buckets struct {
 	bs    [numBuckets]bucket
@@ -79,12 +88,14 @@ type buckets struct {
 }
 
 func (b *buckets) insert(owner ID, node Peer) {
-	if b.count >= k {
+	obits := owner.toBitString()
+	nbits := node.ID.toBitString()
+	if b.count >= dhtK {
 		b.replacement = &node
 		return
 	}
 	for i := 0; i < numBuckets; i++ {
-		if node.ID[i] != owner[i] {
+		if nbits[i] != obits[i] {
 			b.bs[i].insert(node)
 			b.count++
 			return
@@ -92,9 +103,12 @@ func (b *buckets) insert(owner ID, node Peer) {
 	}
 }
 
+// TODO(pallavag): Add locks around non atomic operations.
 func (b *buckets) replace(owner ID, id ID) {
+	obits := owner.toBitString()
+	ibits := id.toBitString()
 	for i := 0; i < numBuckets; i++ {
-		if id[i] != owner[i] {
+		if ibits[i] != obits[i] {
 			b.bs[i].del(id)
 			b.count--
 			break

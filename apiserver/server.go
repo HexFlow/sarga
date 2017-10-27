@@ -12,7 +12,7 @@ import (
 )
 
 func StartAPIServer(args ServerArgs, dht dht.DHT) {
-	addr := iface.GetAddress(args.IP, args.Port, args.Proto)
+	addr := iface.GetAddress(args.IP, args.Port)
 	s := &http.Server{
 		Addr:    addr.ToString(),
 		Handler: &proxyHandler{dht},
@@ -29,7 +29,6 @@ type proxyHandler struct {
 }
 
 func (h *proxyHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	path := req.URL.String()
 	body := []byte{}
 	_, err := req.Body.Read(body)
 	if err != nil {
@@ -40,10 +39,10 @@ func (h *proxyHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		hash := sha1.New()
 		io.WriteString(hash, req.URL.RequestURI())
 		// TODO: Assert 160 bytes length
-		data, err := h.dht.FindValue(hex.EncodeToString(hash.Sum(nil)))
+		_, err := h.dht.FindValue(hex.EncodeToString(hash.Sum(nil)))
 		if err != nil {
 			rw.WriteHeader(http.StatusNotFound)
-			_, err := rw.Write([]byte(err.Error()))
+			rw.Write([]byte(err.Error()))
 		}
 	} else if req.Method == "POST" {
 		data := []byte{}
@@ -55,7 +54,7 @@ func (h *proxyHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			err = h.dht.StoreValue(hex.EncodeToString(hash.Sum(nil)), data)
 			if err != nil {
 				rw.WriteHeader(http.StatusNotFound)
-				_, err := rw.Write([]byte(err.Error()))
+				rw.Write([]byte(err.Error()))
 			}
 		}
 	} else {

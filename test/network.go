@@ -13,6 +13,10 @@ type TestNet struct {
 
 var _ iface.Net = &TestNet{}
 
+func InitTestNet() *TestNet {
+	return &TestNet{dhts: map[iface.Address]dht.DHT{}}
+}
+
 func (n *TestNet) Get(addr iface.Address, path string) ([]byte, error) {
 	return n.dhts[addr].Respond(path, nil), nil
 }

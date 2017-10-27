@@ -2,8 +2,8 @@ package sdht
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/sakshamsharma/sarga/common/dht"
@@ -25,9 +25,17 @@ var _ dht.DHT = &SDHT{}
 // TODO: This should not remain global if we want to allow multiple instances of SDHT.
 var network iface.Net
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 	d.id = genId()
 	d.store = make(Storage)
+	d.alive = map[ID]int{}
 	network = net
 
 	for _, seed := range seeds {
@@ -36,7 +44,7 @@ func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 			continue
 		}
 
-		nodes, err := root.FindNode(d.id)
+		nodes, err := root.FindNode(marshalID(d.id))
 		if err != nil {
 			continue
 		}
@@ -52,7 +60,9 @@ func (d *SDHT) Init(seeds []iface.Address, net iface.Net) error {
 		go d.serve()
 		return nil
 	}
-	return errors.New("no provided seed completed initial connection")
+	//return errors.New("no provided seed completed initial connection")
+	go d.serve()
+	return nil
 }
 
 func (d *SDHT) Shutdown() {
@@ -82,7 +92,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 			return marshal(findNodeResp{Error: err})
 		}
 		d.setAlive(req.ID)
-		peers, err := d.findNode(marshalID(req.FindID))
+		peers, err := d.findNode(req.Key)
 		if err != nil {
 			return marshal(findNodeResp{Error: err})
 		}
@@ -111,13 +121,101 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 	return nil
 }
 
+func (d *SDHT) findClosestPeers(key string) ([]Peer, error) {
+	keyID, _ := unmarshalID(key)
+	peers, err := d.findNode(key)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(peers, func(i, j int) bool {
+		return isBetter(keyID, peers[i], peers[j])
+	})
+
+	for {
+		hopPeers := []Peer{}
+		for _, p := range peers {
+			peersP, err := p.FindNode(key)
+			if err != nil {
+				log.Println("Error contacting peer:", err)
+			}
+			hopPeers = append(hopPeers, peersP...)
+		}
+
+		sort.Slice(hopPeers, func(i, j int) bool {
+			return isBetter(keyID, hopPeers[i], hopPeers[j])
+		})
+
+		// TODO: This is wrong.
+		if !isBetter(keyID, hopPeers[0], peers[0]) {
+			return nil, nil
+		}
+
+		peers = hopPeers[:min(len(hopPeers), dhtK)]
+	}
+}
+
 func (d *SDHT) StoreValue(key string, data []byte) error {
-	return d.store.Set(key, data)
+	// TODO: fill this function.
+	return nil
 }
 
 func (d *SDHT) FindValue(key string) ([]byte, error) {
-	// TODO
+	data, peers, err := d.findValue(key)
+	if err != nil {
+		return nil, err
+	}
+	if data != nil {
+		return data, nil
+	}
+
+	keyID, _ := unmarshalID(key)
+	sort.Slice(peers, func(i, j int) bool {
+		return isBetter(keyID, peers[i], peers[j])
+	})
+
+	for {
+		hopPeers := []Peer{}
+		for _, p := range peers {
+			dataP, peersP, err := p.FindValue(key)
+			if dataP != nil {
+				return data, nil
+			}
+			if err != nil {
+				log.Println("Error contacting peer:", err)
+			}
+			hopPeers = append(hopPeers, peersP...)
+		}
+
+		sort.Slice(hopPeers, func(i, j int) bool {
+			return isBetter(keyID, hopPeers[i], hopPeers[j])
+		})
+
+		if !isBetter(keyID, hopPeers[0], peers[0]) {
+			return nil, nil
+		}
+
+		peers = hopPeers[:min(len(hopPeers), dhtK)]
+	}
+
 	return nil, nil
+}
+
+// isBetter returns true if peer1 is closer to key than peer2.
+func isBetter(key ID, peer1, peer2 Peer) bool {
+	return dist(peer1.ID, key) < dist(peer2.ID, key)
+}
+
+// dist returns the distance between two keys.
+func dist(id1, id2 ID) int {
+	id1bits := id1.toBitString()
+	id2bits := id2.toBitString()
+	for i := range id1bits {
+		if id1bits[i] != id2bits[i] {
+			return numBuckets - i
+		}
+	}
+	return 0
 }
 
 func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
@@ -132,8 +230,20 @@ func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
 }
 
 func (d *SDHT) findNode(key string) ([]Peer, error) {
-	// TODO
-	return nil, nil
+	buckets := d.buckets.bs
+	newBuckets := []Peer{}
+
+	// TODO(pallavag): Remove unsafe unmarshals.
+	keyID, _ := unmarshalID(key)
+	for _, b := range buckets {
+		newBuckets = append(newBuckets, b...)
+	}
+
+	sort.Slice(newBuckets, func(i, j int) bool {
+		return isBetter(keyID, newBuckets[i], newBuckets[j])
+	})
+
+	return newBuckets[:min(len(newBuckets), dhtK)], nil
 }
 
 func (d *SDHT) setAlive(id ID) {
@@ -145,35 +255,11 @@ func (d *SDHT) recordExit(id ID) {
 	d.buckets.replace(d.id, id)
 }
 
-// TODO: Move this to apiserver
+// TODO: Move this to apiserver.
 func (d *SDHT) serve() error {
 	return network.Listen(iface.Address{
-		IP:    "0.0.0.0",
-		Port:  6779,
-		Proto: iface.TCP,
+		IP:   "0.0.0.0",
+		Port: 6779,
+		//Proto: iface.TCP,
 	}, d.Respond, d.shutdown)
-
-	// listen, err := net.Listen("tcp", "0.0.0.0:6779")
-	// if err != nil {
-	// 	log.Printf("Failed to open listening socket: %s", err)
-	// 	return
-	// }
-	// d.listen = listen
-
-	// for {
-	// 	conn, err := d.listen.Accept()
-	// 	if err != nil {
-	// 		select {
-	// 		case <-d.shutdown:
-	// 			return
-	// 		default:
-	// 			log.Printf("Accept failed: %v", err)
-	// 		}
-	// 	}
-	// 	// TODO: Make this work
-	// 	// err = d.respond(conn)
-	// 	// if err != nil {
-	// 	// 	log.Printf("Responding to connection failed: %v", err)
-	// 	// }
-	// }
 }

@@ -37,8 +37,9 @@ func (p *Peer) SendStore(key string, data []byte) error {
 	return network.Put(p.Addr, "store", bytes)
 }
 
-func (p *Peer) FindNode(id ID) ([]Peer, error) {
-	req := findNodeReq{p.ID, id}
+// TODO(pallavag): Make all calls async.
+func (p *Peer) FindNode(key string) ([]Peer, error) {
+	req := findNodeReq{p.ID, key}
 	bytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
