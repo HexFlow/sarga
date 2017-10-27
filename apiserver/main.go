@@ -19,6 +19,14 @@ func Init() error {
 	var args ServerArgs
 	arg.MustParse(&args)
 
+	if args.Port == 0 {
+		return fmt.Errorf("port not provided. Please provide a port using --port=<integer>")
+	}
+
+	if args.IP == "" {
+		args.IP = "127.0.0.1"
+	}
+
 	for _, seed := range args.Seeds {
 		fmt.Println(seed)
 	}

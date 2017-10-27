@@ -29,7 +29,7 @@ type Address struct {
 }
 
 func (a *Address) ToString() string {
-	return a.IP + strconv.Itoa(a.Port)
+	return a.IP + ":" + strconv.Itoa(a.Port)
 }
 
 type Net interface {
