@@ -41,7 +41,7 @@ func Init() error {
 		seeds, &httpnet.HTTPNet{}); err != nil {
 		return err
 	}
-	StartAPIServer(args, dhtInst)
+	StartAPIServer(args.CommonArgs, dhtInst)
 
 	return nil
 }

@@ -1,6 +1,7 @@
 package apiserver
 
 import (
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -9,7 +10,8 @@ import (
 	"github.com/sakshamsharma/sarga/common/iface"
 )
 
-func StartAPIServer(args ServerArgs, dht dht.DHT) {
+// TODO(sakshams): Should have a shutdown channel for integration tests.
+func StartAPIServer(args iface.CommonArgs, dht dht.DHT) {
 	addr := iface.GetAddress(args.IP, args.Port)
 	s := &http.Server{
 		Addr:    addr.String(),
@@ -28,51 +30,51 @@ type proxyHandler struct {
 }
 
 func (h *proxyHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	body := []byte{}
-	_, err := req.Body.Read(body)
-	if err != nil {
-		rw.WriteHeader(http.StatusBadRequest)
-	}
+	path := req.URL.RequestURI()
+	if strings.HasPrefix(path, "/sarga/") {
+		path = path[6:] // Drop the initial /sarga part.
 
-	if req.URL.Hostname() == "sarga" {
-		// Admin panel / upload UI / statistics visualization is done on http://sarga domain.
-
-		if strings.HasPrefix(req.URL.RequestURI(), "/upload/") {
+		if strings.HasPrefix(path, "/upload/") {
 			// Upload file.
-			path := string(req.URL.RequestURI()[7]) // drop the initial /upload part.
-			data := []byte{}
-			_, err := req.Body.Read(data)
+			path := path[7:] // Drop the initial /upload part.
+			data, err := ioutil.ReadAll(req.Body)
 			if err == nil {
 				err = uploadFile(path, data, h.dht)
 				if err != nil {
 					rw.WriteHeader(http.StatusInternalServerError)
 					rw.Write([]byte(err.Error()))
+				} else {
+					rw.WriteHeader(http.StatusOK)
+					rw.Write([]byte("File uploaded at " + path))
 				}
-				rw.WriteHeader(http.StatusOK)
-				rw.Write([]byte("File uploaded at " + path))
+			}
+
+		} else {
+			if req.Method == "GET" {
+				// Fetch file.
+				data, err := downloadFile(path, h.dht)
+				if err != nil {
+					rw.WriteHeader(http.StatusNotFound)
+					rw.Write([]byte(err.Error()))
+					log.Println(err)
+				} else {
+					rw.WriteHeader(http.StatusOK)
+					rw.Write(data)
+				}
+			} else {
+				rw.WriteHeader(http.StatusBadRequest)
+				_, err := rw.Write([]byte("Unsupported method. Allowed methods: GET"))
+				if err != nil {
+					log.Println(err)
+				}
 			}
 		}
 	} else {
-		// All non-sarga domain proxy server requests will be treated as fetch requests.
-		// TODO(sakshams): Filter requests on the hostname. If the hostname is not
-		// http://sarga-fetch domain, let the request pass through to the regular internet.
-		if req.Method == "GET" {
-			// Fetch file.
-			path := string(req.URL.RequestURI())
-			data, err := downloadFile(path, h.dht)
-			if err != nil {
-				rw.WriteHeader(http.StatusNotFound)
-				rw.Write([]byte(err.Error()))
-			}
-			rw.WriteHeader(http.StatusOK)
-			rw.Write(data)
-		} else {
-			rw.WriteHeader(http.StatusBadRequest)
-			_, err = rw.Write([]byte("Unsupported method. Allowed methods: GET"))
-		}
+		// TODO(sakshams): Forward regular requests to the internet.
+		rw.WriteHeader(http.StatusBadRequest)
+		_, err := rw.Write([]byte("Forwarding non-/sarga/ requests is not supported yet."))
 		if err != nil {
 			log.Println(err)
 		}
 	}
-
 }
