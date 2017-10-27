@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"strconv"
 
 	"github.com/sakshamsharma/sarga/common/dht"
@@ -18,7 +19,9 @@ type dataChunk struct {
 }
 
 func hashStr(s string) string {
-	return hex.EncodeToString(sha1.New().Sum([]byte(s)))
+	h := sha1.New()
+	io.WriteString(h, s)
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func min(a, b int) int {
@@ -38,8 +41,9 @@ func uploadFile(fileName string, data []byte, dht dht.DHT) error {
 	for count < dataLen {
 		chunkCount++
 		thisChunkLen := min(ChunkSizeBytes, dataLen-count)
+		thisChunkHash := hashStr(fileName + "#" + strconv.Itoa(chunkCount))
 		chunks = append(chunks, dataChunk{
-			key:  hashStr(fileName + "#" + strconv.Itoa(chunkCount)),
+			key:  thisChunkHash,
 			data: data[count : count+thisChunkLen],
 		})
 		count += thisChunkLen
@@ -64,7 +68,7 @@ func uploadFile(fileName string, data []byte, dht dht.DHT) error {
 				return err
 			}
 			dataToStore := append([]byte{0}, []byte(chunk.data)...)
-			err = dht.StoreValue(hashStr(chunk.key), dataToStore)
+			err = dht.StoreValue(chunk.key, dataToStore)
 		}
 	}
 	return err
@@ -88,7 +92,7 @@ func downloadFile(fileName string, dht dht.DHT) ([]byte, error) {
 	result := []byte{}
 	for _, chunkHash := range bytes.Split(data[1:], []byte("#")) {
 		chunk, err := dht.FindValue(string(chunkHash))
-		if err == nil {
+		if err != nil {
 			return nil, err
 		}
 		if len(chunk) == 0 {

@@ -15,8 +15,11 @@ import (
 	"github.com/sakshamsharma/sarga/impl/httpnet"
 )
 
-func TestUploadDownloadE2E(t *testing.T) {
+func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
+}
+
+func TestUploadDownloadE2E(t *testing.T) {
 
 	dht := &dht.FakeDHT{}
 	dht.Init(iface.Address{}, []iface.Address{}, &httpnet.HTTPNet{})
@@ -61,6 +64,31 @@ func TestUploadDownload(t *testing.T) {
 	dht := &dht.FakeDHT{}
 	dht.Init(iface.Address{}, []iface.Address{}, &httpnet.HTTPNet{})
 	buf := []byte{1, 2, 3, 4, 5, 6}
+
+	err := uploadFile("coolfile", buf, dht)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := downloadFile("coolfile", dht)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = compareBufs(data, buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestChunking(t *testing.T) {
+	dht := &dht.FakeDHT{}
+	dht.Init(iface.Address{}, []iface.Address{}, &httpnet.HTTPNet{})
+
+	testLen := 5*ChunkSizeBytes + rand.Intn(1024)
+
+	buf := make([]byte, testLen)
+	rand.Read(buf)
 
 	err := uploadFile("coolfile", buf, dht)
 	if err != nil {
