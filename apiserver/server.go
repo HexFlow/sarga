@@ -12,10 +12,10 @@ import (
 func StartAPIServer(args ServerArgs, dht dht.DHT) {
 	addr := iface.GetAddress(args.IP, args.Port)
 	s := &http.Server{
-		Addr:    addr.ToString(),
+		Addr:    addr.String(),
 		Handler: &proxyHandler{dht},
 	}
-	log.Println("Listening on", addr.ToString())
+	log.Println("Listening on", addr.String())
 	err := s.ListenAndServe()
 	if err != nil {
 		log.Println(err)

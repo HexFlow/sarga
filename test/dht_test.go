@@ -33,14 +33,14 @@ func TestDHT(t *testing.T) {
 
 	nodeDHT := sdht.SDHT{}
 	addr := iface.Address{"0", 0}
-	nodeDHT.Init(addr, []iface.Address{}, network)
 	network.dhts[addr] = &nodeDHT
+	nodeDHT.Init(addr, []iface.Address{}, network)
 
 	for i := 1; i < dhtCount; i++ {
 		nodeDHT := sdht.SDHT{}
 		addr := iface.Address{strconv.Itoa(i), 0}
-		nodeDHT.Init(addr, []iface.Address{{strconv.Itoa(rand.Intn(i)), 0}}, network)
 		network.dhts[addr] = &nodeDHT
+		nodeDHT.Init(addr, []iface.Address{{strconv.Itoa(rand.Intn(i)), 0}}, network)
 	}
 
 	ii := marshalID(genId())

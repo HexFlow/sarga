@@ -1,6 +1,9 @@
 package test
 
 import (
+	"fmt"
+	"log"
+
 	"github.com/sakshamsharma/sarga/common/dht"
 	"github.com/sakshamsharma/sarga/common/iface"
 )
@@ -18,20 +21,32 @@ func InitTestNet() *TestNet {
 }
 
 func (n *TestNet) Get(addr iface.Address, path string) ([]byte, error) {
+	if _, ok := n.dhts[addr]; !ok {
+		log.Fatalf("address not found: %v", addr.String())
+		return nil, fmt.Errorf("address not found: %v", addr.String())
+	}
 	return n.dhts[addr].Respond(path, nil), nil
 }
 
 func (n *TestNet) Put(addr iface.Address, path string, data []byte) error {
+	if _, ok := n.dhts[addr]; !ok {
+		log.Fatalf("address not found: %v", addr.String())
+		return fmt.Errorf("address not found: %v", addr.String())
+	}
 	n.dhts[addr].Respond(path, data)
 	return nil
 }
 
 func (n *TestNet) Post(addr iface.Address, path string, data []byte) ([]byte, error) {
+	if _, ok := n.dhts[addr]; !ok {
+		log.Fatalf("address not found: %v", addr)
+		return nil, fmt.Errorf("address not found: %v", addr)
+	}
 	return n.dhts[addr].Respond(path, data), nil
 }
 
-// Listen simply blocks till shutdown. Since we control the network, we will directly
-// call the member functions during the unit tests.
+// Listen simply blocks till shutdown. Since we control the network, we will
+// directly call the member functions during the unit tests.
 func (n *TestNet) Listen(_ iface.Address, _ func(string, []byte) []byte, shutdown chan bool) error {
 	for {
 		select {

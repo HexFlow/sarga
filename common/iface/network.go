@@ -28,7 +28,7 @@ type Address struct {
 	Port int
 }
 
-func (a *Address) ToString() string {
+func (a Address) String() string {
 	return a.IP + ":" + strconv.Itoa(a.Port)
 }
 

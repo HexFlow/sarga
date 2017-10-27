@@ -15,7 +15,7 @@ type HTTPNet struct {
 var _ iface.Net = &HTTPNet{}
 
 func (n *HTTPNet) Get(addr iface.Address, path string) ([]byte, error) {
-	resp, err := http.Get(addr.ToString())
+	resp, err := http.Get(addr.String())
 	if err != nil {
 		return nil, err
 	}
@@ -26,12 +26,12 @@ func (n *HTTPNet) Get(addr iface.Address, path string) ([]byte, error) {
 }
 
 func (n *HTTPNet) Put(addr iface.Address, path string, data []byte) error {
-	_, err := http.Post(addr.ToString()+"/"+path, "application/json", bytes.NewBuffer(data))
+	_, err := http.Post(addr.String()+"/"+path, "application/json", bytes.NewBuffer(data))
 	return err
 }
 
 func (n *HTTPNet) Post(addr iface.Address, path string, data []byte) ([]byte, error) {
-	resp, err := http.Post(addr.ToString()+"/"+path, "application/json", bytes.NewBuffer(data))
+	resp, err := http.Post(addr.String()+"/"+path, "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (n *HTTPNet) Post(addr iface.Address, path string, data []byte) ([]byte, er
 
 func (n *HTTPNet) Listen(addr iface.Address, handler func(string, []byte) []byte, shutdown chan bool) error {
 	s := &http.Server{
-		Addr:    addr.ToString(),
+		Addr:    addr.String(),
 		Handler: &httphandler{handler},
 	}
 	go s.ListenAndServe()
