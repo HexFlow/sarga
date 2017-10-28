@@ -49,13 +49,58 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
-// genId generates a 160 bit random ID for the node.
-func genId() ID {
+// genID generates a 160 bit random ID for the node.
+func genID() ID {
 	ret := ID{}
-	for i, _ := range ret {
+	for i := range ret {
 		ret[i] = byte(rand.Int() % 256)
 	}
 	return ret
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (id ID) toBitString() string {
+	arr := []string{}
+	for _, b := range id {
+		arr = append(arr, fmt.Sprintf("%.8b", b))
+	}
+	return strings.Join(arr, "")
+}
+
+// isBetter returns true if peer1 is closer to key than peer2.
+func isBetter(key ID, peer1, peer2 Peer) bool {
+	return dist(peer1.ID, key) < dist(peer2.ID, key)
+}
+
+func isBetterSlice(key ID, peer1, peer2 []Peer) bool {
+	l := min(len(peer1), len(peer2))
+	for i := 0; i < l; i++ {
+		if dist(peer1[i].ID, key) < dist(peer2[i].ID, key) {
+			return true
+		}
+		if dist(peer1[i].ID, key) > dist(peer2[i].ID, key) {
+			return false
+		}
+	}
+	return (len(peer1) > len(peer2)) && (len(peer2) < dhtK)
+}
+
+// dist returns the distance between two keys.
+func dist(id1, id2 ID) int {
+	id1bits := id1.toBitString()
+	id2bits := id2.toBitString()
+	for i := range id1bits {
+		if id1bits[i] != id2bits[i] {
+			return numBuckets - i
+		}
+	}
+	return 0
 }
 
 // bucket struct handles the list of nodes stored in each bucket.
@@ -73,14 +118,6 @@ func (b *bucket) del(id ID) {
 		*b = make(bucket)
 	}
 	delete(*b, id)
-}
-
-func (id ID) toBitString() string {
-	arr := []string{}
-	for _, b := range id {
-		arr = append(arr, fmt.Sprintf("%.8b", b))
-	}
-	return strings.Join(arr, "")
 }
 
 // buckets is the underlying struct which handles the creation and deletion of buckets.

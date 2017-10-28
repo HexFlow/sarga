@@ -28,22 +28,8 @@ var _ dht.DHT = &SDHT{}
 // of SDHT.
 var network iface.Net
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func (d *SDHT) getPeer() Peer {
-	return Peer{
-		ID:   d.id,
-		Addr: d.addr,
-	}
-}
-
 func (d *SDHT) Init(addr iface.Address, seeds []iface.Address, net iface.Net) error {
-	d.id = genId()
+	d.id = genID()
 	d.store = make(Storage)
 	d.alive = map[ID]int{}
 	d.addr = addr
@@ -124,44 +110,6 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 	return nil
 }
 
-func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
-	keyID, _ := unmarshalID(key)
-	peers, err := d.findNode(key)
-	if err != nil {
-		return nil, err
-	}
-
-	sort.Slice(peers, func(i, j int) bool {
-		return isBetter(keyID, peers[i], peers[j])
-	})
-
-	for {
-		hopPeers := []Peer{}
-		for _, p := range peers {
-			if insert {
-				d.buckets.insert(d.id, p)
-			}
-			peersP, err := p.FindNode(d.getPeer(), key)
-			if err != nil {
-				log.Println("Error contacting peer:", err)
-			}
-			hopPeers = append(hopPeers, peersP...)
-		}
-
-		sort.Slice(hopPeers, func(i, j int) bool {
-			return isBetter(keyID, hopPeers[i], hopPeers[j])
-		})
-
-		if !isBetterSlice(keyID, hopPeers, peers) {
-			break
-		}
-
-		peers = hopPeers[:min(len(hopPeers), dhtK)]
-	}
-
-	return peers[:min(len(peers), dhtK)], nil
-}
-
 func (d *SDHT) StoreValue(key string, data []byte) error {
 	fmt.Println("StoreValue", marshalID(d.id), key, string(data))
 	peers, err := d.findClosestPeers(key, false)
@@ -216,38 +164,51 @@ func (d *SDHT) FindValue(key string) ([]byte, error) {
 
 		peers = hopPeers[:min(len(hopPeers), dhtK)]
 	}
-
-	return nil, nil
 }
 
-// isBetter returns true if peer1 is closer to key than peer2.
-func isBetter(key ID, peer1, peer2 Peer) bool {
-	return dist(peer1.ID, key) < dist(peer2.ID, key)
-}
-
-func isBetterSlice(key ID, peer1, peer2 []Peer) bool {
-	l := min(len(peer1), len(peer2))
-	for i := 0; i < l; i++ {
-		if dist(peer1[i].ID, key) < dist(peer2[i].ID, key) {
-			return true
-		}
-		if dist(peer1[i].ID, key) > dist(peer2[i].ID, key) {
-			return false
-		}
+func (d *SDHT) getPeer() Peer {
+	return Peer{
+		ID:   d.id,
+		Addr: d.addr,
 	}
-	return (len(peer1) > len(peer2)) && (len(peer2) < dhtK)
 }
 
-// dist returns the distance between two keys.
-func dist(id1, id2 ID) int {
-	id1bits := id1.toBitString()
-	id2bits := id2.toBitString()
-	for i := range id1bits {
-		if id1bits[i] != id2bits[i] {
-			return numBuckets - i
-		}
+func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
+	keyID, _ := unmarshalID(key)
+	peers, err := d.findNode(key)
+	if err != nil {
+		return nil, err
 	}
-	return 0
+
+	sort.Slice(peers, func(i, j int) bool {
+		return isBetter(keyID, peers[i], peers[j])
+	})
+
+	for {
+		hopPeers := []Peer{}
+		for _, p := range peers {
+			if insert {
+				d.buckets.insert(d.id, p)
+			}
+			peersP, err := p.FindNode(d.getPeer(), key)
+			if err != nil {
+				log.Println("Error contacting peer:", err)
+			}
+			hopPeers = append(hopPeers, peersP...)
+		}
+
+		sort.Slice(hopPeers, func(i, j int) bool {
+			return isBetter(keyID, hopPeers[i], hopPeers[j])
+		})
+
+		if !isBetterSlice(keyID, hopPeers, peers) {
+			break
+		}
+
+		peers = hopPeers[:min(len(hopPeers), dhtK)]
+	}
+
+	return peers[:min(len(peers), dhtK)], nil
 }
 
 func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {

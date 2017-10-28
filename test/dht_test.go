@@ -11,10 +11,10 @@ import (
 	"github.com/sakshamsharma/sarga/impl/sdht"
 )
 
-// genId generates a 160 bit random ID for the node.
-func genId() sdht.ID {
+// genID generates a 160 bit random ID for the node.
+func genID() sdht.ID {
 	ret := sdht.ID{}
-	for i, _ := range ret {
+	for i := range ret {
 		ret[i] = byte(rand.Int() % 256)
 	}
 	return ret
@@ -24,7 +24,10 @@ func marshalID(id sdht.ID) string {
 	return hex.EncodeToString(id[:])
 }
 
-const dhtCount = 200
+const (
+	dhtCount    = 20
+	dataToStore = "hi-this*is*a#test#string"
+)
 
 func TestDHT(t *testing.T) {
 	network := InitTestNet()
@@ -43,14 +46,19 @@ func TestDHT(t *testing.T) {
 		nodeDHT.Init(addr, []iface.Address{{strconv.Itoa(rand.Intn(i)), 0}}, network)
 	}
 
-	ii := marshalID(genId())
-	nodeDHT.StoreValue(ii, []byte("hi"))
+	ii := marshalID(genID())
+
+	err := nodeDHT.StoreValue(ii, []byte(dataToStore))
+	if err != nil {
+		t.Fatalf("error while storing file in DHT: %v", err)
+	}
+
 	v, err := nodeDHT.FindValue(ii)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("error while fetching file from DHT: %v", err)
 	}
-	if string(v) != "hi" {
-		t.Fatal("Nope", string(v))
+
+	if string(v) != dataToStore {
+		t.Fatalf("invalid data receieved from DHT, expected %q, got %q", dataToStore, string(v))
 	}
-	t.Fatal("COOL")
 }
