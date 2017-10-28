@@ -10,8 +10,8 @@ const (
 	HTTP
 )
 
-func (p *Proto) ToString() string {
-	switch *p {
+func (p Proto) String() string {
+	switch p {
 	case TCP:
 		return "tcp"
 	case UDP:

@@ -16,7 +16,7 @@ const numBuckets = 160
 type ID [20]byte
 
 func (id ID) String() string {
-	return marshalID(id)
+	return id.toBitString()[:10]
 }
 
 func unmarshalID(id string) (ID, error) {
@@ -122,8 +122,7 @@ func (b *bucket) del(id ID) {
 
 // buckets is the underlying struct which handles the creation and deletion of buckets.
 type buckets struct {
-	bs    [numBuckets]bucket
-	count int
+	bs [numBuckets]bucket
 
 	// Use a pointer so it is possible to check it against nil.
 	replacement *Peer

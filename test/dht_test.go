@@ -25,7 +25,7 @@ func marshalID(id sdht.ID) string {
 }
 
 const (
-	dhtCount    = 20
+	dhtCount    = 6
 	dataToStore = "hi-this*is*a#test#string"
 )
 
@@ -59,6 +59,6 @@ func TestDHT(t *testing.T) {
 	}
 
 	if string(v) != dataToStore {
-		t.Fatalf("invalid data receieved from DHT, expected %q, got %q", dataToStore, string(v))
+		t.Fatalf("invalid data receieved from DHT, expected %q, got %q", dataToStore, v)
 	}
 }

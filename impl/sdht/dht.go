@@ -2,7 +2,6 @@ package sdht
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"sort"
 	"time"
@@ -35,12 +34,15 @@ func (d *SDHT) Init(addr iface.Address, seeds []iface.Address, net iface.Net) er
 	d.addr = addr
 	network = net
 
+	log.Println(d.id, "starting init")
+
 	for _, seed := range seeds {
 		root := &Peer{ID{}, seed}
 		if err := root.Ping(); err != nil {
 			continue
 		}
 		// If ping was successful, root.ID should now be filled.
+		log.Println(d.id, "realized about", root.ID)
 
 		d.buckets.insert(d.id, *root)
 		d.findClosestPeers(marshalID(d.id), true)
@@ -111,7 +113,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 }
 
 func (d *SDHT) StoreValue(key string, data []byte) error {
-	fmt.Println("StoreValue", marshalID(d.id), key, string(data))
+	//fmt.Println("StoreValue", marshalID(d.id), key, string(data))
 	peers, err := d.findClosestPeers(key, false)
 	if err != nil {
 		return err
@@ -127,7 +129,7 @@ func (d *SDHT) StoreValue(key string, data []byte) error {
 }
 
 func (d *SDHT) FindValue(key string) ([]byte, error) {
-	fmt.Println("FindValue", marshalID(d.id), key)
+	//fmt.Println("FindValue", marshalID(d.id), key)
 	data, peers, err := d.findValue(key)
 	if err != nil {
 		return nil, err
@@ -183,11 +185,20 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 	sort.Slice(peers, func(i, j int) bool {
 		return isBetter(keyID, peers[i], peers[j])
 	})
+	log.Println(d.id, "has peers", peers)
+
+	var peersUniq map[ID]Peer
 
 	for {
-		hopPeers := []Peer{}
+		peersUniq = map[ID]Peer{}
 		for _, p := range peers {
-			if insert {
+			peersUniq[p.ID] = p
+		}
+
+		hopPeers := []Peer{}
+		for _, p := range peersUniq {
+			if insert && p.ID != d.id {
+				log.Println(d.id, "added peer", p.ID)
 				d.buckets.insert(d.id, p)
 			}
 			peersP, err := p.FindNode(d.getPeer(), key)
@@ -196,10 +207,19 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 			}
 			hopPeers = append(hopPeers, peersP...)
 		}
+		for _, p := range hopPeers {
+			peersUniq[p.ID] = p
+		}
+
+		hopPeers = []Peer{}
+		for _, p := range peersUniq {
+			hopPeers = append(hopPeers, p)
+		}
 
 		sort.Slice(hopPeers, func(i, j int) bool {
 			return isBetter(keyID, hopPeers[i], hopPeers[j])
 		})
+		log.Println(d.id, "got hops", hopPeers)
 
 		if !isBetterSlice(keyID, hopPeers, peers) {
 			break
@@ -212,7 +232,7 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 }
 
 func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
-	fmt.Println("findValue", marshalID(d.id), key)
+	//fmt.Println("findValue", marshalID(d.id), key)
 	if val, err := d.store.Get(key); err == nil {
 		return val, nil, nil
 	}
@@ -224,7 +244,7 @@ func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
 }
 
 func (d *SDHT) findNode(key string) ([]Peer, error) {
-	fmt.Println("findNode", marshalID(d.id), key)
+	//fmt.Println("findNode", marshalID(d.id), key)
 	buckets := d.buckets.bs
 	newBuckets := []Peer{}
 
@@ -236,7 +256,7 @@ func (d *SDHT) findNode(key string) ([]Peer, error) {
 		}
 	}
 
-	fmt.Println("Here", newBuckets)
+	//fmt.Println("Here", newBuckets)
 	sort.Slice(newBuckets, func(i, j int) bool {
 		return isBetter(keyID, newBuckets[i], newBuckets[j])
 	})
