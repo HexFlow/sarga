@@ -70,6 +70,7 @@ func (p *Peer) FindValue(id ID, key string) ([]byte, []Peer, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
 	ret := findValueResp{}
 	if err := json.Unmarshal(resp, &ret); err != nil {
 		return nil, nil, err

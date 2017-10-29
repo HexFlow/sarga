@@ -2,6 +2,7 @@ package sdht
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"sort"
 	"time"
@@ -70,6 +71,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 		if err := json.Unmarshal(data, &req); err != nil {
 			return marshal(findValueResp{Error: err})
 		}
+		fmt.Println(marshalID(d.id), "was asked about FindValue for", req.Key)
 		d.setAliveTime(req.ID)
 		out, peers, err := d.findValue(req.Key)
 		if err != nil {
@@ -96,6 +98,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 			return nil
 		}
 		d.setAliveTime(req.ID)
+		fmt.Println(marshalID(d.id), "is storing key", req.Key)
 		d.store.Set(req.Key, []byte(req.Data))
 
 	case "exit":
@@ -113,7 +116,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 }
 
 func (d *SDHT) StoreValue(key string, data []byte) error {
-	//fmt.Println("StoreValue", marshalID(d.id), key, string(data))
+	fmt.Println(marshalID(d.id), "Sending StoreValue", key, string(data))
 	peers, err := d.findClosestPeers(key, false)
 	if err != nil {
 		return err
@@ -130,6 +133,7 @@ func (d *SDHT) StoreValue(key string, data []byte) error {
 
 func (d *SDHT) FindValue(key string) ([]byte, error) {
 	//fmt.Println("FindValue", marshalID(d.id), key)
+	fmt.Println(marshalID(d.id), "wants key", key)
 	data, peers, err := d.findValue(key)
 	if err != nil {
 		return nil, err
@@ -148,7 +152,7 @@ func (d *SDHT) FindValue(key string) ([]byte, error) {
 		for _, p := range peers {
 			dataP, peersP, err := p.FindValue(d.id, key)
 			if dataP != nil {
-				return data, nil
+				return dataP, nil
 			}
 			if err != nil {
 				log.Println("Error contacting peer:", err)
@@ -234,8 +238,11 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
 	//fmt.Println("findValue", marshalID(d.id), key)
 	if val, err := d.store.Get(key); err == nil {
+		fmt.Println(marshalID(d.id), "GOT THE VALUE FOR", key)
+		fmt.Println("IT WAS", string(val))
 		return val, nil, nil
 	}
+	fmt.Println(marshalID(d.id), "DID NOT GET THE VALUE FOR", key)
 	peers, err := d.findNode(key)
 	if err == nil {
 		return nil, peers, nil
@@ -251,7 +258,7 @@ func (d *SDHT) findNode(key string) ([]Peer, error) {
 	// TODO(pallavag): Remove unsafe unmarshals.
 	keyID, _ := unmarshalID(key)
 	for _, bs := range buckets {
-		for _, b := range bs {
+		for _, b := range bs.peers {
 			newBuckets = append(newBuckets, b)
 		}
 	}

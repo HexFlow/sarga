@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const dhtK = 20
+const dhtK = 1
 const numBuckets = 160
 
 // ID is the representation of the type used for the key in the DHT.
@@ -104,28 +104,44 @@ func dist(id1, id2 ID) int {
 }
 
 // bucket struct handles the list of nodes stored in each bucket.
-type bucket map[ID]Peer
+type bucket struct {
+	peers       map[ID]Peer
+	replacement *Peer
+}
 
 func (b *bucket) insert(node Peer) {
-	if *b == nil {
-		*b = make(bucket)
+	// TODO(sakshams): Should be atomic.
+	if b.peers == nil {
+		b.peers = make(map[ID]Peer)
 	}
-	(*b)[node.ID] = node
+	if len(b.peers) < dhtK {
+		b.peers[node.ID] = node
+	} else {
+		b.replacement = &node
+	}
 }
 
 func (b *bucket) del(id ID) {
-	if *b == nil {
-		*b = make(bucket)
+	// TODO(sakshams): Should be atomic.
+	if b.peers == nil {
+		b.peers = make(map[ID]Peer)
 	}
-	delete(*b, id)
+	delete(b.peers, id)
+}
+
+func (b *bucket) replace(id ID) {
+	// TODO(sakshams): Should be atomic.
+	b.del(id)
+	if b.replacement != nil {
+		replacement := *b.replacement
+		b.replacement = nil
+		b.insert(replacement)
+	}
 }
 
 // buckets is the underlying struct which handles the creation and deletion of buckets.
 type buckets struct {
 	bs [numBuckets]bucket
-
-	// Use a pointer so it is possible to check it against nil.
-	replacement *Peer
 }
 
 func (b *buckets) insert(owner ID, node Peer) {
@@ -146,13 +162,8 @@ func (b *buckets) replace(owner ID, id ID) {
 	ibits := id.toBitString()
 	for i := 0; i < numBuckets; i++ {
 		if ibits[i] != obits[i] {
-			b.bs[i].del(id)
+			b.bs[i].replace(id)
 			break
 		}
-	}
-	if b.replacement != nil {
-		replacement := *b.replacement
-		b.replacement = nil
-		b.insert(owner, replacement)
 	}
 }

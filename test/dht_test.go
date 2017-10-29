@@ -2,6 +2,9 @@ package test
 
 import (
 	"encoding/hex"
+	"fmt"
+	"io/ioutil"
+	"log"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -25,11 +28,12 @@ func marshalID(id sdht.ID) string {
 }
 
 const (
-	dhtCount    = 6
+	dhtCount    = 50
 	dataToStore = "hi-this*is*a#test#string"
 )
 
 func TestDHT(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
 	network := InitTestNet()
 
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -46,6 +50,8 @@ func TestDHT(t *testing.T) {
 		nodeDHT.Init(addr, []iface.Address{{strconv.Itoa(rand.Intn(i)), 0}}, network)
 	}
 
+	fmt.Println("**** INIT FINISHED **")
+
 	ii := marshalID(genID())
 
 	err := nodeDHT.StoreValue(ii, []byte(dataToStore))
@@ -53,7 +59,7 @@ func TestDHT(t *testing.T) {
 		t.Fatalf("error while storing file in DHT: %v", err)
 	}
 
-	v, err := nodeDHT.FindValue(ii)
+	v, err := network.dhts[iface.Address{strconv.Itoa(rand.Intn(dhtCount)), 0}].FindValue(ii)
 	if err != nil {
 		t.Fatalf("error while fetching file from DHT: %v", err)
 	}
