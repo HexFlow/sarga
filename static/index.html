@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <title>Sarga</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="author" content="Saksham Sharma, Pallav Agarwal">
+    <meta name="keywords" content="programming, linux, webdev, sarga, distributed">
+    <link rel="icon" href="/sarga/ui/favicon.ico">
+    <link rel="stylesheet" href="/sarga/ui/main.css">
+  </head>
+  <body>
+    <div class="container">
+      <section id="main">
+
+        <div id="sidebar">
+          <ul>
+            <li>
+              <form enctype="multipart/form-data" action="/sarga/upload/" method="post" id="form1">
+                <input id="file-to-upload" type="file"/>
+              </form>
+              <button type="submit" form="form1" value="Submit">Submit</button>
+            </li>
+            <li>Neighbors known right now
+              <ul>
+                <li>Node 1</li>
+                <li>Node 2</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <div id="header">
+          <div id="search">
+            <input type="text" id="mainsearch"/>
+            <input type="submit" value="Go">
+          </div>
+        </div>
+        <div id="content">
+          Hello, World!
+        </div>
+        <div id="footer"></div>
+
+      </section>
+    </div>
+  </body>
+</html>
