@@ -31,7 +31,7 @@ func TestUploadDownloadE2E(t *testing.T) {
 		IP:   "127.0.0.1",
 	}, dht)
 
-	time.Sleep(1)
+	time.Sleep(2)
 
 	addr := "http://127.0.0.1:" + strconv.Itoa(port)
 
@@ -43,7 +43,7 @@ func TestUploadDownloadE2E(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	resp, err := http.Get(addr + "/sarga/coolfile")
+	resp, err := http.Get(addr + "/sarga/files/coolfile")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
