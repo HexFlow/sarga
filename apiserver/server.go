@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/elazarl/goproxy"
+
 	"github.com/sakshamsharma/sarga/common/dht"
 	"github.com/sakshamsharma/sarga/common/iface"
 )
@@ -18,7 +20,8 @@ func StartAPIServer(args iface.CommonArgs, dht dht.DHT) {
 
 	http.HandleFunc("/sarga/upload/", prefixHandler("/sarga/upload", h.uploadHandler))
 	http.HandleFunc("/sarga/files/", prefixHandler("/sarga/files", h.filesHandler))
-	http.Handle("/sarga/ui", http.StripPrefix("/sarga/ui/", fs))
+	http.Handle("/sarga/ui/", http.StripPrefix("/sarga/ui/", fs))
+	http.Handle("/", goproxy.NewProxyHttpServer())
 
 	addr := iface.GetAddress(args.IP, args.Port).String()
 	log.Println("Listening on", addr)
@@ -35,6 +38,10 @@ func prefixHandler(prefix string, handler handleFuncType) handleFuncType {
 		req.URL.Path = req.URL.Path[len(prefix):]
 		handler(rw, req)
 	}
+}
+
+type proxyHandler struct {
+	dht dht.DHT
 }
 
 func (h *proxyHandler) uploadHandler(rw http.ResponseWriter, req *http.Request) {
@@ -71,18 +78,5 @@ func (h *proxyHandler) filesHandler(rw http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			log.Println(err)
 		}
-	}
-}
-
-type proxyHandler struct {
-	dht dht.DHT
-}
-
-func (h *proxyHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	// TODO(sakshams): Forward regular requests to the internet.
-	rw.WriteHeader(http.StatusBadRequest)
-	_, err := rw.Write([]byte("Forwarding non-/sarga/{ui,files,upload} requests is not supported yet."))
-	if err != nil {
-		log.Println(err)
 	}
 }
