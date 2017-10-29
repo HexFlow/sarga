@@ -156,8 +156,9 @@ func (d *SDHT) FindValue(key string) ([]byte, error) {
 			}
 			if err != nil {
 				log.Println("Error contacting peer:", err)
+			} else {
+				hopPeers = append(hopPeers, peersP...)
 			}
-			hopPeers = append(hopPeers, peersP...)
 		}
 
 		sort.Slice(hopPeers, func(i, j int) bool {
@@ -165,7 +166,7 @@ func (d *SDHT) FindValue(key string) ([]byte, error) {
 		})
 
 		if !isBetterSlice(keyID, hopPeers, peers) {
-			return nil, nil
+			return nil, fmt.Errorf("did not find the file corresponding to chunk %v", key)
 		}
 
 		peers = hopPeers[:min(len(hopPeers), dhtK)]
