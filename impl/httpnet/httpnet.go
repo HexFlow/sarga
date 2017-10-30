@@ -2,6 +2,9 @@ package httpnet
 
 import (
 	"bytes"
+	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 
@@ -16,30 +19,29 @@ type HTTPNet struct {
 var _ iface.Net = &HTTPNet{}
 
 func (n *HTTPNet) Get(addr iface.Address, path string) ([]byte, error) {
-	resp, err := http.Get(addr.String())
+	resp, err := http.Get("http://" + addr.String() + "/" + path)
 	if err != nil {
 		return nil, err
 	}
-	// TODO
-	bytes := []byte{}
-	_, _ = resp.Body.Read(bytes)
-	return bytes, nil
+
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
 }
 
 func (n *HTTPNet) Put(addr iface.Address, path string, data []byte) error {
-	_, err := http.Post(addr.String()+"/"+path, "application/json", bytes.NewBuffer(data))
+	bufReader := ioutil.NopCloser(bytes.NewBuffer(data))
+	_, err := http.Post("http://"+addr.String()+"/"+path, "text/plain", bufReader)
 	return err
 }
 
 func (n *HTTPNet) Post(addr iface.Address, path string, data []byte) ([]byte, error) {
-	resp, err := http.Post(addr.String()+"/"+path, "application/json", bytes.NewBuffer(data))
+	bufReader := ioutil.NopCloser(bytes.NewBuffer(data))
+	resp, err := http.Post("http://"+addr.String()+"/"+path, "text/plain", bufReader)
 	if err != nil {
 		return nil, err
 	}
-	// TODO
-	bytes := []byte{}
-	_, _ = resp.Body.Read(bytes)
-	return bytes, nil
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
 }
 
 func (n *HTTPNet) Listen(addr iface.Address, handler func(string, []byte) []byte, shutdown chan bool) error {
@@ -47,7 +49,15 @@ func (n *HTTPNet) Listen(addr iface.Address, handler func(string, []byte) []byte
 		Addr:    addr.String(),
 		Handler: &httphandler{handler},
 	}
-	go s.ListenAndServe()
+	go func() {
+		err := s.ListenAndServe()
+		if err != nil {
+			log.Println("HTTPNet listen threw an error:", err)
+		} else {
+			log.Println("HTTPNet listen terminated")
+		}
+	}()
+	fmt.Println("HTTPNet Listening on", addr)
 	for {
 		select {
 		case <-shutdown:
@@ -63,9 +73,13 @@ type httphandler struct {
 
 func (h *httphandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	path := strings.TrimPrefix(req.URL.Path, "/")
-	body := []byte{}
-	// TODO: Catch error
-	_, _ = req.Body.Read(body)
-	// TODO: Catch error
-	_, _ = rw.Write(h.handler(path, body))
+	defer req.Body.Close()
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		rw.WriteHeader(http.StatusBadRequest)
+		rw.Write([]byte("Could not read request body"))
+	} else {
+		// TODO: Catch error
+		_, _ = rw.Write(h.handler(path, body))
+	}
 }

@@ -33,13 +33,16 @@ func (d *SDHT) Init(addr iface.Address, seeds []iface.Address, net iface.Net) er
 	d.store = make(Storage)
 	d.alive = map[ID]int{}
 	d.addr = addr
+	d.buckets = initBuckets()
 	network = net
 
-	log.Println(d.id, "starting init")
+	log.Println(d.id, "starting init at", addr)
+	go d.serve()
 
 	for _, seed := range seeds {
 		root := &Peer{ID{}, seed}
 		if err := root.Ping(); err != nil {
+			log.Printf("%v errored while pinging %v: %v", d.id, root.ID, err)
 			continue
 		}
 		// If ping was successful, root.ID should now be filled.
@@ -49,11 +52,9 @@ func (d *SDHT) Init(addr iface.Address, seeds []iface.Address, net iface.Net) er
 		d.findClosestPeers(marshalID(d.id), true)
 
 		d.shutdown = make(chan bool)
-		go d.serve()
 		return nil
 	}
-	//return errors.New("no provided seed completed initial connection")
-	go d.serve()
+	log.Println(d.id, "could not connect to a seed during init")
 	return nil
 }
 
@@ -82,6 +83,8 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 	case "find_node":
 		req := findNodeReq{}
 		if err := json.Unmarshal(data, &req); err != nil {
+			fmt.Println(data)
+			fmt.Println("ERROR AA GAYA:", err)
 			return marshal(findNodeResp{Error: err})
 		}
 		d.setAlive(req.Asker)
@@ -118,7 +121,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 		})
 
 	default:
-		log.Println("Request not recognized.")
+		log.Println("Request not recognized:", action)
 	}
 	return nil
 }
@@ -163,7 +166,7 @@ func (d *SDHT) FindValue(key string) ([]byte, error) {
 				return dataP, nil
 			}
 			if err != nil {
-				log.Println("Error contacting peer:", err)
+				log.Println(d.id, "got an error contacting peer:", err)
 			} else {
 				hopPeers = append(hopPeers, peersP...)
 			}
@@ -216,7 +219,7 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 			}
 			peersP, err := p.FindNode(d.getPeer(), key)
 			if err != nil {
-				log.Println("Error contacting peer:", err)
+				log.Println(d.id, "got an error contacting peer for findNode:", err)
 			}
 			hopPeers = append(hopPeers, peersP...)
 		}
@@ -298,7 +301,6 @@ func (d *SDHT) recordExit(id ID) {
 func (d *SDHT) serve() error {
 	return network.Listen(iface.Address{
 		IP:   "0.0.0.0",
-		Port: 6779,
-		//Proto: iface.TCP,
+		Port: d.addr.Port,
 	}, d.Respond, d.shutdown)
 }

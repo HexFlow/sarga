@@ -91,4 +91,7 @@ func (h *proxyHandler) apiHandler(rw http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
+	v := h.dht.Respond("info", nil)
+	rw.WriteHeader(http.StatusOK)
+	rw.Write(v)
 }

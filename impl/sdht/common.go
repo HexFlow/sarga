@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -107,13 +108,14 @@ func dist(id1, id2 ID) int {
 type bucket struct {
 	peers       map[ID]Peer
 	replacement *Peer
+
+	lock *sync.RWMutex
 }
 
 func (b *bucket) insert(node Peer) {
-	// TODO(sakshams): Should be atomic.
-	if b.peers == nil {
-		b.peers = make(map[ID]Peer)
-	}
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	if len(b.peers) < dhtK {
 		b.peers[node.ID] = node
 	} else {
@@ -122,15 +124,16 @@ func (b *bucket) insert(node Peer) {
 }
 
 func (b *bucket) del(id ID) {
-	// TODO(sakshams): Should be atomic.
-	if b.peers == nil {
-		b.peers = make(map[ID]Peer)
-	}
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	delete(b.peers, id)
 }
 
 func (b *bucket) replace(id ID) {
-	// TODO(sakshams): Should be atomic.
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	b.del(id)
 	if b.replacement != nil {
 		replacement := *b.replacement
@@ -140,6 +143,9 @@ func (b *bucket) replace(id ID) {
 }
 
 func (b *bucket) Marshal() string {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
 	tmpMap := map[string]string{}
 	for key, val := range b.peers {
 		tmpMap[marshalID(key)] = val.Addr.String()
@@ -149,10 +155,14 @@ func (b *bucket) Marshal() string {
 
 // buckets is the underlying struct which handles the creation and deletion of buckets.
 type buckets struct {
-	bs [numBuckets]bucket
+	bs   [numBuckets]bucket
+	lock *sync.RWMutex
 }
 
 func (b *buckets) insert(owner ID, node Peer) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	obits := owner.toBitString()
 	nbits := node.ID.toBitString()
 
@@ -166,6 +176,9 @@ func (b *buckets) insert(owner ID, node Peer) {
 
 // TODO(pallavag): Add locks around non atomic operations.
 func (b *buckets) replace(owner ID, id ID) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	obits := owner.toBitString()
 	ibits := id.toBitString()
 	for i := 0; i < numBuckets; i++ {
@@ -177,6 +190,9 @@ func (b *buckets) replace(owner ID, id ID) {
 }
 
 func (b *buckets) Marshal() string {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
 	tmpList := []string{}
 	for _, buck := range b.bs {
 		v := buck.Marshal()
@@ -185,4 +201,18 @@ func (b *buckets) Marshal() string {
 		}
 	}
 	return string(marshal(tmpList))
+}
+
+func initBuckets() buckets {
+	bs := [numBuckets]bucket{}
+	for i := 0; i < numBuckets; i++ {
+		bs[i] = bucket{
+			lock:  &sync.RWMutex{},
+			peers: make(map[ID]Peer),
+		}
+	}
+	return buckets{
+		lock: &sync.RWMutex{},
+		bs:   bs,
+	}
 }

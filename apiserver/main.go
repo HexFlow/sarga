@@ -2,6 +2,8 @@ package apiserver
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/sakshamsharma/sarga/common/iface"
@@ -12,7 +14,8 @@ import (
 type ServerArgs struct {
 	iface.CommonArgs
 
-	Seeds []string
+	Seeds          []string
+	RandomDHTCount int
 }
 
 func Init() error {
@@ -41,6 +44,17 @@ func Init() error {
 		seeds, &httpnet.HTTPNet{}); err != nil {
 		return err
 	}
+
+	if args.RandomDHTCount > 0 {
+		time.Sleep(2 * time.Second)
+		for i := 0; i < args.RandomDHTCount; i++ {
+			nodeDHT := &sdht.SDHT{}
+			addr := iface.Address{"0.0.0.0", rand.Intn(3000) + 4000}
+			nodeDHT.Init(addr, []iface.Address{{"0.0.0.0", 8080}}, &httpnet.HTTPNet{})
+		}
+		time.Sleep(2 * time.Second)
+	}
+
 	StartAPIServer(args.CommonArgs, dhtInst)
 
 	return nil
