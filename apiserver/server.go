@@ -20,7 +20,8 @@ func StartAPIServer(args iface.CommonArgs, dht dht.DHT) {
 
 	http.HandleFunc("/sarga/upload/", prefixHandler("/sarga/upload", h.uploadHandler))
 	http.HandleFunc("/sarga/files/", prefixHandler("/sarga/files", h.filesHandler))
-	http.Handle("/sarga/ui/", http.StripPrefix("/sarga/ui/", fs))
+	http.HandleFunc("/sarga/api/", prefixHandler("/sarga/api", h.apiHandler))
+	http.Handle("/sarga/", http.StripPrefix("/sarga", fs))
 	http.Handle("/", goproxy.NewProxyHttpServer())
 
 	addr := iface.GetAddress(args.IP, args.Port).String()
@@ -78,5 +79,16 @@ func (h *proxyHandler) filesHandler(rw http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			log.Println(err)
 		}
+	}
+}
+
+func (h *proxyHandler) apiHandler(rw http.ResponseWriter, req *http.Request) {
+	if req.Method != "GET" {
+		rw.WriteHeader(http.StatusBadRequest)
+		_, err := rw.Write([]byte("Unsupported method. Allowed methods: GET"))
+		if err != nil {
+			log.Println(err)
+		}
+		return
 	}
 }

@@ -1,4 +1,4 @@
-package test
+package testnet
 
 import (
 	"fmt"
@@ -11,38 +11,38 @@ import (
 // TestNet is used for unit tests of DHT.
 // TODO: Errors are not handled well yet.
 type TestNet struct {
-	dhts map[iface.Address]dht.DHT
+	DHTs map[iface.Address]dht.DHT
 }
 
 var _ iface.Net = &TestNet{}
 
 func InitTestNet() *TestNet {
-	return &TestNet{dhts: map[iface.Address]dht.DHT{}}
+	return &TestNet{DHTs: map[iface.Address]dht.DHT{}}
 }
 
 func (n *TestNet) Get(addr iface.Address, path string) ([]byte, error) {
-	if _, ok := n.dhts[addr]; !ok {
+	if _, ok := n.DHTs[addr]; !ok {
 		log.Fatalf("address not found: %v", addr.String())
 		return nil, fmt.Errorf("address not found: %v", addr.String())
 	}
-	return n.dhts[addr].Respond(path, nil), nil
+	return n.DHTs[addr].Respond(path, nil), nil
 }
 
 func (n *TestNet) Put(addr iface.Address, path string, data []byte) error {
-	if _, ok := n.dhts[addr]; !ok {
+	if _, ok := n.DHTs[addr]; !ok {
 		log.Fatalf("address not found: %v", addr.String())
 		return fmt.Errorf("address not found: %v", addr.String())
 	}
-	n.dhts[addr].Respond(path, data)
+	n.DHTs[addr].Respond(path, data)
 	return nil
 }
 
 func (n *TestNet) Post(addr iface.Address, path string, data []byte) ([]byte, error) {
-	if _, ok := n.dhts[addr]; !ok {
+	if _, ok := n.DHTs[addr]; !ok {
 		log.Fatalf("address not found: %v", addr)
 		return nil, fmt.Errorf("address not found: %v", addr)
 	}
-	return n.dhts[addr].Respond(path, data), nil
+	return n.DHTs[addr].Respond(path, data), nil
 }
 
 // Listen simply blocks till shutdown. Since we control the network, we will

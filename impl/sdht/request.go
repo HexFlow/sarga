@@ -35,7 +35,7 @@ type pingResp struct {
 	ID ID
 }
 
-type fakeHTTP struct {
-	path string
-	data []byte
+type infoResp struct {
+	Data    string
+	Buckets string
 }

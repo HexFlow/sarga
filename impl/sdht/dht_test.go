@@ -1,7 +1,7 @@
-package test
+package sdht
 
 import (
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,42 +11,29 @@ import (
 	"time"
 
 	"github.com/sakshamsharma/sarga/common/iface"
-	"github.com/sakshamsharma/sarga/impl/sdht"
+	"github.com/sakshamsharma/sarga/impl/testnet"
 )
 
-// genID generates a 160 bit random ID for the node.
-func genID() sdht.ID {
-	ret := sdht.ID{}
-	for i := range ret {
-		ret[i] = byte(rand.Int() % 256)
-	}
-	return ret
-}
-
-func marshalID(id sdht.ID) string {
-	return hex.EncodeToString(id[:])
-}
-
 const (
-	dhtCount    = 50
+	dhtCount    = 5
 	dataToStore = "hi-this*is*a#test#string"
 )
 
 func TestDHT(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
-	network := InitTestNet()
+	network := testnet.InitTestNet()
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	nodeDHT := sdht.SDHT{}
+	nodeDHT := SDHT{}
 	addr := iface.Address{"0", 0}
-	network.dhts[addr] = &nodeDHT
+	network.DHTs[addr] = &nodeDHT
 	nodeDHT.Init(addr, []iface.Address{}, network)
 
 	for i := 1; i < dhtCount; i++ {
-		nodeDHT := sdht.SDHT{}
+		nodeDHT := SDHT{}
 		addr := iface.Address{strconv.Itoa(i), 0}
-		network.dhts[addr] = &nodeDHT
+		network.DHTs[addr] = &nodeDHT
 		nodeDHT.Init(addr, []iface.Address{{strconv.Itoa(rand.Intn(i)), 0}}, network)
 	}
 
@@ -59,12 +46,30 @@ func TestDHT(t *testing.T) {
 		t.Fatalf("error while storing file in DHT: %v", err)
 	}
 
-	v, err := network.dhts[iface.Address{strconv.Itoa(rand.Intn(dhtCount)), 0}].FindValue(ii)
+	reqData := findValueReq{
+		ID:  nodeDHT.id,
+		Key: ii,
+	}
+	v, err := network.Post(iface.Address{strconv.Itoa(rand.Intn(dhtCount)), 0}, "find_value", marshal(reqData))
 	if err != nil {
 		t.Fatalf("error while fetching file from DHT: %v", err)
 	}
+	resp := findValueResp{}
+	if err := json.Unmarshal(v, &resp); err != nil {
+		t.Fatalf("invalid JSON received as response to find_value: %v", err)
+	}
+	if resp.Error != nil {
+		t.Fatalf("node returned error in response to find_value: %v", resp.Error)
+	}
 
-	if string(v) != dataToStore {
+	if string(resp.Data) != dataToStore {
 		t.Fatalf("invalid data receieved from DHT, expected %q, got %q", dataToStore, v)
 	}
+
+	fmt.Println("ASKING for info now")
+	v, err = network.Get(iface.Address{"0", 0}, "info")
+	if err != nil {
+		t.Fatalf("error while fetching file from DHT: %v", err)
+	}
+	fmt.Println(string(v))
 }

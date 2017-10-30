@@ -139,6 +139,14 @@ func (b *bucket) replace(id ID) {
 	}
 }
 
+func (b *bucket) Marshal() string {
+	tmpMap := map[string]string{}
+	for key, val := range b.peers {
+		tmpMap[marshalID(key)] = val.Addr.String()
+	}
+	return string(marshal(tmpMap))
+}
+
 // buckets is the underlying struct which handles the creation and deletion of buckets.
 type buckets struct {
 	bs [numBuckets]bucket
@@ -166,4 +174,15 @@ func (b *buckets) replace(owner ID, id ID) {
 			break
 		}
 	}
+}
+
+func (b *buckets) Marshal() string {
+	tmpList := []string{}
+	for _, buck := range b.bs {
+		v := buck.Marshal()
+		if v != "" && v != "{}" {
+			tmpList = append(tmpList, buck.Marshal())
+		}
+	}
+	return string(marshal(tmpList))
 }

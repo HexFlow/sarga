@@ -20,3 +20,11 @@ func (s Storage) Del(key string) error {
 	delete(s, key)
 	return nil
 }
+
+func (s Storage) Marshal() string {
+	tmpMap := map[string]string{}
+	for key, val := range s {
+		tmpMap[key] = string(val)
+	}
+	return string(marshal(tmpMap))
+}

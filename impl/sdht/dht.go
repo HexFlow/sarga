@@ -109,6 +109,14 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 		}
 		d.recordExit(req.ID)
 
+	case "info":
+		fmt.Println("STORAGE:", d.store.Marshal())
+		fmt.Println("BUCKETS:", d.buckets.Marshal())
+		return marshal(infoResp{
+			Data:    d.store.Marshal(),
+			Buckets: d.buckets.Marshal(),
+		})
+
 	default:
 		log.Println("Request not recognized.")
 	}

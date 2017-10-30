@@ -3,6 +3,7 @@ package httpnet
 import (
 	"bytes"
 	"net/http"
+	"strings"
 
 	"github.com/sakshamsharma/sarga/common/iface"
 )
@@ -61,7 +62,7 @@ type httphandler struct {
 }
 
 func (h *httphandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	path := req.URL.String()
+	path := strings.TrimPrefix(req.URL.Path, "/")
 	body := []byte{}
 	// TODO: Catch error
 	_, _ = req.Body.Read(body)
