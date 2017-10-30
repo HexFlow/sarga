@@ -116,7 +116,9 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 		fmt.Println("STORAGE:", d.store.Marshal())
 		fmt.Println("BUCKETS:", d.buckets.Marshal())
 		return marshal(infoResp{
-			Data:    d.store.Marshal(),
+			ID:      marshalID(d.id),
+			Port:    d.addr.Port,
+			Storage: d.store.Marshal(),
 			Buckets: d.buckets.Marshal(),
 		})
 

@@ -7,7 +7,12 @@ var svg = d3.select("svg"),
     color = d3.scaleOrdinal(d3.schemeCategory10);
 
 var nodes = [],
-    links = [];
+    links = [],
+    edges = [];
+
+// Map from node id to its data.
+var nodeInfo = {},
+    edgeInfo = {};
 
 var simulation = d3.forceSimulation(nodes)
     .force("charge", d3.forceManyBody().strength(-1000))
@@ -21,40 +26,92 @@ var g = svg.append("g").attr("transform", "translate(" + width / 2 + "," + heigh
     link = g.append("g").attr("stroke", "#000").attr("stroke-width", 1.5).selectAll(".link"),
     node = g.append("g").attr("stroke", "#fff").attr("stroke-width", 1.5).selectAll(".node");
 
+function parseInfoResp(data) {
+  let v = JSON.parse(data);
+  let pb = JSON.parse(v.Buckets)
+  let pblen = pb.length;
+  for (let i = 0; i<pblen; i++) {
+    pb[i] = JSON.parse(pb[i]);
+  }
+  return {
+    ID: v.ID,
+    Port: v.Port,
+    Buckets: pb,
+    Storage: JSON.parse(v.Storage)
+  };
+}
+
 $.ajax({
   type: "GET",
   url: "/sarga/api/",
   success: function(data, status, jqXHR) {
-    console.log(data);
-    console.log(status);
+    nodes = [];
+    links = [];
+
+    // ID to Address, Buckets and Storage map.
+    nodeInfo = {};
+
+    // ID to Node object map. Contains address as well.
+    idToNodeMap = {};
+
+    edgeInfo = {};
+
+    processNodeInfo(data);
+
     restart();
   }
 });
 
-// d3.timeout(function() {
-//   links.push({source: a, target: b}); // Add a-b.
-//   links.push({source: b, target: c}); // Add b-c.
-//   links.push({source: c, target: a}); // Add c-a.
-//   restart();
-// }, 1000);
+function processNodeInfo(data) {
+  let resp = parseInfoResp(data);
+  let rootNode = {"id": resp.ID};
 
-// d3.interval(function() {
-//   nodes.pop(); // Remove c.
-//   links.pop(); // Remove c-a.
-//   links.pop(); // Remove b-c.
-//   restart();
-// }, 2000, d3.now());
+  nodeInfo[resp.ID] = resp;
+  idToNodeMap[resp.ID] = rootNode;
 
-// d3.interval(function() {
-//   nodes.push(c); // Re-add c.
-//   links.push({source: b, target: c}); // Re-add b-c.
-//   links.push({source: c, target: a}); // Re-add c-a.
-//   restart();
-// }, 2000, d3.now() + 1000);
+  let bucket_count = resp.Buckets.length;
+  for (let i=0; i<bucket_count; i++) {
+    for (let neighbor_id in resp.Buckets[i]) {
+      if (resp.Buckets[i].hasOwnProperty(neighbor_id)) {
+        let neighbor = {
+          "id": neighbor_id,
+          "address": resp.Buckets[i][neighbor_id]
+        };
+        edges.push(rootNode.id+"-"+neighbor.id);
+        idToNodeMap[neighbor_id] = neighbor;
+      }
+    }
+  }
+}
+
+function unique(arr) {
+  var u = {}, a = [];
+  for(var i = 0, l = arr.length; i < l; ++i){
+    if(!u.hasOwnProperty(arr[i])) {
+      a.push(arr[i]);
+      u[arr[i]] = 1;
+    }
+  }
+  return a;
+}
 
 function restart() {
+  nodes = [];
+  links = [];
+  for (let node_id in idToNodeMap) {
+    if (idToNodeMap.hasOwnProperty(node_id)) {
+      nodes.push(idToNodeMap[node_id]);
+    }
+  }
+
+  edges = unique(edges);
+  for (let i=0; i<edges.length; i++) {
+    let kk = edges[i].split("-");
+    links.push({source: idToNodeMap[kk[0]], target: idToNodeMap[kk[1]]});
+  }
+
   // Apply the general update pattern to the nodes.
-  node = node.data(nodes, function(d) { return d.id;});
+  node = node.data(nodes, function(d) { return d.id; });
   node.exit().remove();
   node = node
     .enter()
@@ -62,6 +119,8 @@ function restart() {
     .attr("fill", function(d) { return color(d.id); })
     .attr("r", 8)
     .merge(node)
+    .text(function(d) { return d.id; })
+    .on("click", mouseclicked)
     .on("mouseover", mouseovered)
     .on("mouseout", mouseouted);
 
@@ -86,8 +145,42 @@ function ticked() {
       .attr("y2", function(d) { return d.target.y; });
 }
 
+function mouseclicked(d) {
+  let clicked = idToNodeMap[d.id];
+  $.ajax({
+    type: "GET",
+    url: "http://"+idToNodeMap[d.id].address+"/info",
+    success: function(data, status, jqXHR) {
+      processNodeInfo(data);
+      restart();
+    }
+  });
+}
+
 function mouseovered(d) {
+  console.log(JSON.stringify(d));
 }
 
 function mouseouted(d) {
 }
+
+// d3.timeout(function() {
+//   links.push({source: a, target: b}); // Add a-b.
+//   links.push({source: b, target: c}); // Add b-c.
+//   links.push({source: c, target: a}); // Add c-a.
+//   restart();
+// }, 1000);
+
+// d3.interval(function() {
+//   nodes.pop(); // Remove c.
+//   links.pop(); // Remove c-a.
+//   links.pop(); // Remove b-c.
+//   restart();
+// }, 2000, d3.now());
+
+// d3.interval(function() {
+//   nodes.push(c); // Re-add c.
+//   links.push({source: b, target: c}); // Re-add b-c.
+//   links.push({source: c, target: a}); // Re-add c-a.
+//   restart();
+// }, 2000, d3.now() + 1000);

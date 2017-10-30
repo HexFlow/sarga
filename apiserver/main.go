@@ -47,10 +47,14 @@ func Init() error {
 
 	if args.RandomDHTCount > 0 {
 		time.Sleep(2 * time.Second)
-		for i := 0; i < args.RandomDHTCount; i++ {
+
+		ports := []int{8080}
+
+		for i := 1; i <= args.RandomDHTCount; i++ {
 			nodeDHT := &sdht.SDHT{}
 			addr := iface.Address{"0.0.0.0", rand.Intn(3000) + 4000}
-			nodeDHT.Init(addr, []iface.Address{{"0.0.0.0", 8080}}, &httpnet.HTTPNet{})
+			ports = append(ports, addr.Port)
+			nodeDHT.Init(addr, []iface.Address{{"0.0.0.0", ports[rand.Intn(i)]}}, &httpnet.HTTPNet{})
 		}
 		time.Sleep(2 * time.Second)
 	}

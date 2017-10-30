@@ -72,6 +72,15 @@ type httphandler struct {
 }
 
 func (h *httphandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	rw.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	rw.Header().Set("Access-Control-Allow-Headers",
+		"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	// Stop here if its Preflighted OPTIONS request
+	if req.Method == "OPTIONS" {
+		return
+	}
+
 	path := strings.TrimPrefix(req.URL.Path, "/")
 	defer req.Body.Close()
 	body, err := ioutil.ReadAll(req.Body)

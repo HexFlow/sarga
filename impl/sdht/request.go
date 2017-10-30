@@ -36,6 +36,8 @@ type pingResp struct {
 }
 
 type infoResp struct {
-	Data    string
+	ID      string
+	Port    int
+	Storage string
 	Buckets string
 }
