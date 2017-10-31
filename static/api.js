@@ -15,15 +15,31 @@ var nodeInfo = {},
     edgeInfo = {};
 
 var simulation = d3.forceSimulation(nodes)
-    .force("charge", d3.forceManyBody().strength(-1000))
+    .force("charge", d3.forceManyBody().strength(-100))
     .force("link", d3.forceLink(links).distance(200))
-    .force("x", d3.forceX())
-    .force("y", d3.forceY())
+    //.force("x", d3.forceX())
+    .force("center", d3.forceCenter($('body').width()/2,500))
+    .velocityDecay(0.2)
     .alphaTarget(1)
     .on("tick", ticked);
 
-var g = svg.append("g").attr("transform", "translate(" + width / 2 + "," + height / 2 + ")"),
-    link = g.append("g").attr("stroke", "#000").attr("stroke-width", 1.5).selectAll(".link"),
+console.log("Width is " + d3.select('body').attr('width'))
+
+svg.append("svg:defs").selectAll("marker")
+    .data(["end"])                // Different link/path types can be defined here
+    .enter().append("svg:marker") // This section adds in the arrows
+    .attr("id", String)
+    .attr("viewBox", "0 0 10 10")
+    .attr("refX", 20)
+    .attr("refY", 5)
+    .attr("markerWidth", 6)
+    .attr("markerHeight", 6)
+    .attr("orient", "auto")
+    .append("svg:path")
+    .attr("d", "M 0 0 L 10 5 L 0 10 z");
+
+var g = svg.append("g"),//.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")"),
+    link = g.append("g").attr("stroke", "#000").attr("marker-end", "url(#end)").attr("stroke-width", 1.5).selectAll(".link"),
     node = g.append("g").attr("stroke", "#fff").attr("stroke-width", 1.5).selectAll(".node");
 
 function parseInfoResp(data) {
@@ -133,6 +149,9 @@ function restart() {
   simulation.nodes(nodes);
   simulation.force("link").links(links);
   simulation.alpha(1).restart();
+  d3.timeout(function() {
+    simulation.stop();
+  }, 2000);
 }
 
 function ticked() {

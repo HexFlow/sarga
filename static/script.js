@@ -17,6 +17,7 @@ var simulation = d3.forceSimulation(nodes)
     .force("link", d3.forceLink(links).distance(200))
     .force("x", d3.forceX())
     .force("y", d3.forceY())
+    .velocityDecay(0.9)
     .alphaTarget(1)
     .on("tick", ticked);
 
