@@ -22,16 +22,25 @@
 
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav mr-auto">
-            <li class="nav-item">
-              <a class="nav-link" href="#">Switch to Upload mode</a>
+            <li class="nav-item" id="downloadnav">
+              <a class="nav-link" href="#" onclick="switchToUpload()">Switch to Upload mode</a>
             </li>
-            <li class="nav-item hidden">
-              <a class="nav-link" href="#">Switch to Visualization mode</a>
+            <li class="nav-item hidden" id="uploadnav">
+              <a class="nav-link" href="#" onclick="switchToDownload()">Switch to Download mode</a>
             </li>
           </ul>
+          <form class="form-inline my-2 my-lg-0 hidden" style="width: 50%;" id="uploadform">
+            <div id="filename"></div>
+            <label class="custom-file-upload btn btn-outline-info">
+              Select File
+              <input type="file" name="fileToUpload" id="fileToUpload"/>
+            </label>
+            <input id="uploadName" class="form-control mr-sm-2 col-sm" type="search" placeholder="File path in network" aria-label="UploadName">
+            <div class="btn btn-outline-success my-2 my-sm-0" onclick="upload()">Upload</div>
+          </form>
           <form class="form-inline my-2 my-lg-0" style="width: 50%;" id="downloadform">
-            <input class="form-control mr-sm-2 col-sm" type="search" placeholder="File name to fetch" aria-label="DownloadName">
-            <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Download</button>
+            <input id="downloadName" class="form-control mr-sm-2 col-sm" type="search" placeholder="File name to fetch" aria-label="DownloadName">
+            <div class="btn btn-outline-success my-2 my-sm-0" onclick="download()">Download </div>
           </form>
         </div>
       </nav>
@@ -40,6 +49,9 @@
        <svg width="100%" height="1000"></svg>
      </div>
 
+    </div>
+
+    <div class="info" id="information">
     </div>
 
     <script src="https://code.jquery.com/jquery-3.2.1.min.js" crossorigin="anonymous"></script>

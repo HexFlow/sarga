@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const dhtK = 20
+const dhtK = 1
 const numBuckets = 160
 
 // ID is the representation of the type used for the key in the DHT.

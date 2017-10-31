@@ -1,6 +1,58 @@
 /*
 This may help https://bl.ocks.org/mbostock/7607999
 */
+
+var switchToUpload = function() {
+  $("#downloadnav").addClass("hidden");
+  $("#downloadform").addClass("hidden");
+  $("#uploadnav").removeClass("hidden")
+  $("#uploadform").removeClass("hidden")
+}
+
+var switchToDownload = function() {
+  $("#uploadnav").addClass("hidden");
+  $("#uploadform").addClass("hidden");
+  $("#downloadnav").removeClass("hidden")
+  $("#downloadform").removeClass("hidden")
+}
+
+var upload = function() {
+    let reader = new FileReader();
+    reader.onload = function() {
+        var arrayBuffer = this.result,
+            array = new Uint8Array(arrayBuffer),
+            binaryString = String.fromCharCode.apply(null, array);
+        console.log(btoa(binaryString));
+        $.ajax({
+            url : '/sarga/upload/' + $("#uploadName").val(),
+            type : 'POST',
+            method : 'POST',
+            data : btoa(binaryString),
+            error: function(data) {
+                $("#information").text(data);
+            },
+            success : function(data) {
+                $("#information").text(data);
+            },
+        });
+    }
+    reader.readAsArrayBuffer($("#fileToUpload")[0].files[0]);
+}
+
+var download = function() {
+  url = "/sarga/files/" + $("#downloadName").val();
+  window.open(url);
+}
+
+$(function() {
+  $("#fileToUpload").change(function(e) {
+    $("#filename").text(e.target.files[0].name);
+  });
+  $("#uploadform").on('submit', upload);
+  $("#downloadform").on('submit', download);
+});
+
+
 var svg = d3.select("svg"),
     width = +svg.attr("width"),
     height = +svg.attr("height"),
@@ -177,7 +229,7 @@ function mouseclicked(d) {
 }
 
 function mouseovered(d) {
-  console.log(JSON.stringify(d));
+  $("#information").text(JSON.stringify(d, null, 2));
 }
 
 function mouseouted(d) {

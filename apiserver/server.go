@@ -1,6 +1,7 @@
 package apiserver
 
 import (
+	"encoding/base64"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -48,15 +49,24 @@ type proxyHandler struct {
 func (h *proxyHandler) uploadHandler(rw http.ResponseWriter, req *http.Request) {
 	// Upload file.
 	data, err := ioutil.ReadAll(req.Body)
-	if err == nil {
-		err = uploadFile(req.URL.Path, data, h.dht)
-		if err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte(err.Error()))
-		} else {
-			rw.WriteHeader(http.StatusOK)
-			rw.Write([]byte("File uploaded at " + req.URL.Path))
-		}
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		rw.Write([]byte("Error while reading body of request: " + err.Error()))
+		return
+	}
+	data, err = base64.StdEncoding.DecodeString(string(data))
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		rw.Write([]byte("Invalid base64 data received in upload request: " + err.Error()))
+		return
+	}
+	err = uploadFile(req.URL.Path, data, h.dht)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		rw.Write([]byte(err.Error()))
+	} else {
+		rw.WriteHeader(http.StatusOK)
+		rw.Write([]byte("File uploaded at " + req.URL.Path))
 	}
 }
 
