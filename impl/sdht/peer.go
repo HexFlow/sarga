@@ -52,8 +52,6 @@ func (p *Peer) FindNode(asker Peer, key string) ([]Peer, error) {
 	}
 	ret := findNodeResp{}
 	if err := json.Unmarshal(resp, &ret); err != nil {
-		fmt.Println("2222222222")
-		fmt.Println(string(resp))
 		return nil, err
 	}
 	if ret.Error != nil {

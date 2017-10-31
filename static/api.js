@@ -22,7 +22,6 @@ var upload = function() {
         var arrayBuffer = this.result,
             array = new Uint8Array(arrayBuffer),
             binaryString = String.fromCharCode.apply(null, array);
-        console.log(btoa(binaryString));
         $.ajax({
             url : '/sarga/upload/' + $("#uploadName").val(),
             type : 'POST',
@@ -40,7 +39,7 @@ var upload = function() {
 }
 
 var download = function() {
-  url = "/sarga/files/" + $("#downloadName").val();
+  let url = "/sarga/files/" + $("#downloadName").val();
   window.open(url);
 }
 

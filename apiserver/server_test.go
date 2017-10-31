@@ -2,6 +2,7 @@ package apiserver
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -35,8 +36,12 @@ func TestUploadDownloadE2E(t *testing.T) {
 
 	addr := "http://127.0.0.1:" + strconv.Itoa(port)
 
-	buf := []byte{1, 2, 3, 4, 5, 6}
-	bufReader := ioutil.NopCloser(bytes.NewBuffer(buf))
+	testLen := rand.Intn(1024*20) + 3
+	buf := make([]byte, testLen)
+	rand.Read(buf)
+
+	ss := base64.RawStdEncoding.EncodeToString(buf)
+	bufReader := ioutil.NopCloser(bytes.NewBuffer([]byte(ss)))
 
 	_, err := http.Post(addr+"/sarga/upload/coolfile", "text/plain", bufReader)
 	if err != nil {
@@ -63,7 +68,10 @@ func TestUploadDownloadE2E(t *testing.T) {
 func TestUploadDownload(t *testing.T) {
 	dht := &dht.FakeDHT{}
 	dht.Init(iface.Address{}, []iface.Address{}, &httpnet.HTTPNet{})
-	buf := []byte{1, 2, 3, 4, 5, 6}
+
+	testLen := rand.Intn(1024 * 20)
+	buf := make([]byte, testLen)
+	rand.Read(buf)
 
 	err := uploadFile("coolfile", buf, dht)
 	if err != nil {

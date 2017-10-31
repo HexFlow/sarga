@@ -125,7 +125,6 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 	case "find_node":
 		req := findNodeReq{}
 		if err := json.Unmarshal(data, &req); err != nil {
-			fmt.Println(data)
 			return marshal(findNodeResp{Error: err})
 		}
 		d.setAlive(req.Asker)
@@ -155,8 +154,6 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 		d.recordExit(req.ID)
 
 	case "info":
-		fmt.Println("STORAGE:", d.store.Marshal())
-		fmt.Println("BUCKETS:", d.buckets.Marshal())
 		return marshal(infoResp{
 			ID:      marshalID(d.id),
 			Port:    d.addr.Port,
@@ -172,7 +169,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 
 func (d *SDHT) StoreValue(key string, data []byte) error {
 	keyID, _ := unmarshalID(key)
-	log.Println(d.id, "Sending StoreValue", keyID, string(data))
+	log.Println(d.id, "Sending StoreValue", keyID)
 	peers, err := d.findClosestPeers(key, false)
 	if err != nil {
 		return err
@@ -292,7 +289,6 @@ func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
 	//fmt.Println("findValue", marshalID(d.id), key)
 	if val, err := d.store.Get(key); err == nil {
 		fmt.Println(marshalID(d.id), "GOT THE VALUE FOR", key)
-		fmt.Println("IT WAS", string(val))
 		return val, nil, nil
 	}
 	keyID, _ := unmarshalID(key)
