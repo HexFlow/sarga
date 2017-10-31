@@ -21,7 +21,7 @@ func StartAPIServer(args iface.CommonArgs, dht dht.DHT) {
 
 	http.HandleFunc("/sarga/upload/", prefixHandler("/sarga/upload", h.uploadHandler))
 	http.HandleFunc("/sarga/files/", prefixHandler("/sarga/files", h.filesHandler))
-	http.HandleFunc("/sarga/api/", prefixHandler("/sarga/api", h.apiHandler))
+	http.HandleFunc("/sarga/info/", prefixHandler("/sarga/info", h.apiHandler))
 	http.Handle("/sarga/", http.StripPrefix("/sarga", fs))
 	http.Handle("/", goproxy.NewProxyHttpServer())
 

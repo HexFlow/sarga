@@ -110,7 +110,7 @@ function parseInfoResp(data) {
 
 $.ajax({
   type: "GET",
-  url: "/sarga/api/",
+  url: "/sarga/info",
   success: function(data, status, jqXHR) {
     nodes = [];
     links = [];
@@ -123,15 +123,18 @@ $.ajax({
 
     edgeInfo = {};
 
-    processNodeInfo(data);
+    processNodeInfo(data, "127.0.0.1:9000/sarga");
 
     restart();
   }
 });
 
-function processNodeInfo(data) {
+function processNodeInfo(data, address) {
   let resp = parseInfoResp(data);
   let rootNode = {"id": resp.ID};
+  if (address != undefined) {
+    rootNode.address = address;
+  }
 
   nodeInfo[resp.ID] = resp;
   idToNodeMap[resp.ID] = rootNode;
@@ -215,6 +218,22 @@ function ticked() {
       .attr("y2", function(d) { return d.target.y; });
 }
 
+function billboard(d) {
+  let ninfo = nodeInfo[d.id];
+  let bucket_count = ninfo.Buckets.length;
+  let ans = "Neighbors:\n";
+  for (let i=0; i<bucket_count; i++) {
+    for (let neighbor_id in ninfo.Buckets[i]) {
+      if (ninfo.Buckets[i].hasOwnProperty(neighbor_id)) {
+        ans += (i+1) + ". " + neighbor_id + "\n";
+      }
+    }
+  }
+  ans += "\n\nAddress: ";
+  ans += d.address + "\n";
+  $("#information").text(ans);
+}
+
 function mouseclicked(d) {
   let clicked = idToNodeMap[d.id];
   $.ajax({
@@ -223,12 +242,12 @@ function mouseclicked(d) {
     success: function(data, status, jqXHR) {
       processNodeInfo(data);
       restart();
+      billboard(d);
     }
   });
 }
 
 function mouseovered(d) {
-  $("#information").text(JSON.stringify(d, null, 2));
 }
 
 function mouseouted(d) {
