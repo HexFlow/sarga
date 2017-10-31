@@ -3,27 +3,25 @@ package sdht
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"math/rand"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/sakshamsharma/sarga/common/iface"
 	"github.com/sakshamsharma/sarga/impl/testnet"
 )
 
 const (
-	dhtCount    = 5
+	dhtCount    = 50
 	dataToStore = "hi-this*is*a#test#string"
 )
 
 func TestDHT(t *testing.T) {
-	log.SetOutput(ioutil.Discard)
+	//log.SetOutput(ioutil.Discard)
 	network := testnet.InitTestNet()
 
-	rand.Seed(time.Now().UTC().UnixNano())
+	//rand.Seed(time.Now().UTC().UnixNano())
+	rand.Seed(0)
 
 	nodeDHT := SDHT{}
 	addr := iface.Address{"0", 0}

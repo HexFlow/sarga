@@ -50,12 +50,39 @@ func (d *SDHT) Init(addr iface.Address, seeds []iface.Address, net iface.Net) er
 
 		d.buckets.insert(d.id, *root)
 		d.findClosestPeers(marshalID(d.id), true)
-
-		d.shutdown = make(chan bool)
-		return nil
 	}
-	log.Println(d.id, "could not connect to a seed during init")
+
+	if len(seeds) != 0 {
+		for i, bucket := range d.buckets.bs {
+			if len(bucket.peers) != 0 {
+				break
+			}
+
+			reprKey := d.getRepresentativeBucketID(i)
+			log.Println(d.id, "trying to fill bucket", i, "using key", reprKey)
+			d.findClosestPeers(marshalID(reprKey), true)
+		}
+	}
+
+	d.shutdown = make(chan bool)
 	return nil
+}
+
+func (d *SDHT) getRepresentativeBucketID(bucketNum int) ID {
+	outputBits := []byte(d.id.toBitString())
+	if outputBits[bucketNum] == '1' {
+		outputBits[bucketNum] = '0'
+	} else {
+		outputBits[bucketNum] = '1'
+	}
+	outputBytes := [20]byte{}
+	for i, _ := range outputBytes {
+		var b byte
+		fmt.Sscanf(string(outputBits[:8]), "%b", &b)
+		outputBits = outputBits[8:]
+		outputBytes[i] = b
+	}
+	return outputBytes
 }
 
 func (d *SDHT) Shutdown() {
@@ -72,7 +99,22 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 		if err := json.Unmarshal(data, &req); err != nil {
 			return marshal(findValueResp{Error: err})
 		}
-		fmt.Println(marshalID(d.id), "was asked about FindValue for", req.Key)
+		keyID, _ := unmarshalID(req.Key)
+		fmt.Println(d.id, "was asked about FindValue for", keyID)
+		d.setAliveTime(req.ID)
+		out, err := d.FindValue(req.Key)
+		if err != nil {
+			return marshal(findValueResp{Error: err})
+		}
+		return marshal(findValueResp{Data: out})
+
+	case "find_value_local":
+		req := findValueReq{}
+		if err := json.Unmarshal(data, &req); err != nil {
+			return marshal(findValueResp{Error: err})
+		}
+		keyID, _ := unmarshalID(req.Key)
+		fmt.Println(d.id, "was asked about FindValueLocal for", keyID)
 		d.setAliveTime(req.ID)
 		out, peers, err := d.findValue(req.Key)
 		if err != nil {
@@ -84,7 +126,6 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 		req := findNodeReq{}
 		if err := json.Unmarshal(data, &req); err != nil {
 			fmt.Println(data)
-			fmt.Println("ERROR AA GAYA:", err)
 			return marshal(findNodeResp{Error: err})
 		}
 		d.setAlive(req.Asker)
@@ -101,7 +142,8 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 			return nil
 		}
 		d.setAliveTime(req.ID)
-		fmt.Println(marshalID(d.id), "is storing key", req.Key)
+		keyID, _ := unmarshalID(req.Key)
+		log.Println(d.id, "is storing key", keyID)
 		d.store.Set(req.Key, []byte(req.Data))
 
 	case "exit":
@@ -129,7 +171,8 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 }
 
 func (d *SDHT) StoreValue(key string, data []byte) error {
-	fmt.Println(marshalID(d.id), "Sending StoreValue", key, string(data))
+	keyID, _ := unmarshalID(key)
+	log.Println(d.id, "Sending StoreValue", keyID, string(data))
 	peers, err := d.findClosestPeers(key, false)
 	if err != nil {
 		return err
@@ -145,8 +188,8 @@ func (d *SDHT) StoreValue(key string, data []byte) error {
 }
 
 func (d *SDHT) FindValue(key string) ([]byte, error) {
-	//fmt.Println("FindValue", marshalID(d.id), key)
-	fmt.Println(marshalID(d.id), "wants key", key)
+	keyID, _ := unmarshalID(key)
+	log.Println(d.id, "wants key", keyID)
 	data, peers, err := d.findValue(key)
 	if err != nil {
 		return nil, err
@@ -155,7 +198,6 @@ func (d *SDHT) FindValue(key string) ([]byte, error) {
 		return data, nil
 	}
 
-	keyID, _ := unmarshalID(key)
 	sort.Slice(peers, func(i, j int) bool {
 		return isBetter(keyID, peers[i], peers[j])
 	})
@@ -203,7 +245,6 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 	sort.Slice(peers, func(i, j int) bool {
 		return isBetter(keyID, peers[i], peers[j])
 	})
-	log.Println(d.id, "has peers", peers)
 
 	var peersUniq map[ID]Peer
 
@@ -215,10 +256,6 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 
 		hopPeers := []Peer{}
 		for _, p := range peersUniq {
-			if insert && p.ID != d.id {
-				log.Println(d.id, "added peer", p.ID)
-				d.buckets.insert(d.id, p)
-			}
 			peersP, err := p.FindNode(d.getPeer(), key)
 			if err != nil {
 				log.Println(d.id, "got an error contacting peer for findNode:", err)
@@ -232,12 +269,14 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 		hopPeers = []Peer{}
 		for _, p := range peersUniq {
 			hopPeers = append(hopPeers, p)
+			if insert && p.ID != d.id {
+				d.buckets.insert(d.id, p)
+			}
 		}
 
 		sort.Slice(hopPeers, func(i, j int) bool {
 			return isBetter(keyID, hopPeers[i], hopPeers[j])
 		})
-		log.Println(d.id, "got hops", hopPeers)
 
 		if !isBetterSlice(keyID, hopPeers, peers) {
 			break
@@ -256,7 +295,8 @@ func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
 		fmt.Println("IT WAS", string(val))
 		return val, nil, nil
 	}
-	fmt.Println(marshalID(d.id), "DID NOT GET THE VALUE FOR", key)
+	keyID, _ := unmarshalID(key)
+	fmt.Println(d.id, "DID NOT GET THE VALUE FOR", keyID)
 	peers, err := d.findNode(key)
 	if err == nil {
 		return nil, peers, nil
@@ -287,7 +327,9 @@ func (d *SDHT) findNode(key string) ([]Peer, error) {
 
 func (d *SDHT) setAlive(peer Peer) {
 	d.alive[peer.ID] = int(time.Now().Unix())
-	d.buckets.insert(d.id, peer)
+	if d.id != peer.ID {
+		d.buckets.insert(d.id, peer)
+	}
 }
 
 func (d *SDHT) setAliveTime(id ID) {

@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 	"sync"
@@ -112,12 +113,15 @@ type bucket struct {
 	lock *sync.RWMutex
 }
 
-func (b *bucket) insert(node Peer) {
+func (b *bucket) insert(owner ID, node Peer) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	if len(b.peers) < dhtK {
-		b.peers[node.ID] = node
+		if _, ok := b.peers[node.ID]; !ok {
+			log.Println(owner, "added peer", node.ID)
+			b.peers[node.ID] = node
+		}
 	} else {
 		b.replacement = &node
 	}
@@ -130,7 +134,7 @@ func (b *bucket) del(id ID) {
 	delete(b.peers, id)
 }
 
-func (b *bucket) replace(id ID) {
+func (b *bucket) replace(owner ID, id ID) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -138,7 +142,7 @@ func (b *bucket) replace(id ID) {
 	if b.replacement != nil {
 		replacement := *b.replacement
 		b.replacement = nil
-		b.insert(replacement)
+		b.insert(owner, replacement)
 	}
 }
 
@@ -168,7 +172,7 @@ func (b *buckets) insert(owner ID, node Peer) {
 
 	for i := 0; i < numBuckets; i++ {
 		if nbits[i] != obits[i] {
-			b.bs[i].insert(node)
+			b.bs[i].insert(owner, node)
 			return
 		}
 	}
@@ -183,7 +187,7 @@ func (b *buckets) replace(owner ID, id ID) {
 	ibits := id.toBitString()
 	for i := 0; i < numBuckets; i++ {
 		if ibits[i] != obits[i] {
-			b.bs[i].replace(id)
+			b.bs[i].replace(owner, id)
 			break
 		}
 	}

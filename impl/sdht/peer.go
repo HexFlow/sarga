@@ -69,7 +69,7 @@ func (p *Peer) FindValue(id ID, key string) ([]byte, []Peer, error) {
 		return nil, nil, err
 	}
 
-	resp, err := network.Post(p.Addr, "find_value", bytes)
+	resp, err := network.Post(p.Addr, "find_value_local", bytes)
 	if err != nil {
 		return nil, nil, err
 	}
