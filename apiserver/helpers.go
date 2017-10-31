@@ -3,6 +3,7 @@ package apiserver
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -14,8 +15,9 @@ import (
 const ChunkSizeBytes = 1024 * 1024
 
 type dataChunk struct {
-	key  string
-	data []byte
+	key             string
+	data            []byte
+	keyWithDataHash string
 }
 
 func hashStr(s string) string {
@@ -42,10 +44,12 @@ func uploadFile(fileName string, data []byte, dht dht.DHT) error {
 		chunkCount++
 		thisChunkLen := min(ChunkSizeBytes, dataLen-count)
 		thisChunkHash := hashStr(fileName + "#" + strconv.Itoa(chunkCount))
-		chunks = append(chunks, dataChunk{
+		dataChunk := dataChunk{
 			key:  thisChunkHash,
 			data: data[count : count+thisChunkLen],
-		})
+		}
+		dataChunk.keyWithDataHash = hashStr(dataChunk.key + base64.StdEncoding.EncodeToString(dataChunk.data))
+		chunks = append(chunks, dataChunk)
 		count += thisChunkLen
 	}
 
@@ -59,7 +63,7 @@ func uploadFile(fileName string, data []byte, dht dht.DHT) error {
 			if i != 0 {
 				listOfChunkHashes += "#"
 			}
-			listOfChunkHashes += chunk.key
+			listOfChunkHashes += chunk.keyWithDataHash
 		}
 		err = dht.StoreValue(hashStr(fileName), append([]byte{1}, []byte(listOfChunkHashes)...))
 
@@ -68,7 +72,7 @@ func uploadFile(fileName string, data []byte, dht dht.DHT) error {
 				return err
 			}
 			dataToStore := append([]byte{0}, []byte(chunk.data)...)
-			err = dht.StoreValue(chunk.key, dataToStore)
+			err = dht.StoreValue(chunk.keyWithDataHash, dataToStore)
 		}
 	}
 	return err
