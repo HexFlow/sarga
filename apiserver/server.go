@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/elazarl/goproxy"
 
@@ -22,6 +23,7 @@ func StartAPIServer(args iface.CommonArgs, dht dht.DHT) {
 	http.HandleFunc("/sarga/upload/", prefixHandler("/sarga/upload", h.uploadHandler))
 	http.HandleFunc("/sarga/files/", prefixHandler("/sarga/files", h.filesHandler))
 	http.HandleFunc("/sarga/info/", prefixHandler("/sarga/info", h.apiHandler))
+	http.HandleFunc("/sarga/fs/", prefixHandler("/sarga/fs", h.fsHandler))
 	http.Handle("/sarga/", http.StripPrefix("/sarga", fs))
 	http.Handle("/", goproxy.NewProxyHttpServer())
 
@@ -44,6 +46,64 @@ func prefixHandler(prefix string, handler handleFuncType) handleFuncType {
 
 type proxyHandler struct {
 	dht dht.DHT
+}
+
+func (h *proxyHandler) fsHandler(rw http.ResponseWriter, req *http.Request) {
+	url := req.URL.Path
+
+	if strings.HasPrefix(url, "/getattr") {
+		url = url[len("/getattr"):]
+		data, err := fsGetAttr(url, h.dht)
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte(err.Error()))
+			log.Println(err)
+		} else {
+			rw.WriteHeader(http.StatusOK)
+			rw.Write(data)
+		}
+	} else if strings.HasPrefix(url, "/readdir") {
+		url = url[len("/readdir"):]
+		data, err := fsReadDir(url, h.dht)
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte(err.Error()))
+			log.Println(err)
+		} else {
+			rw.WriteHeader(http.StatusOK)
+			rw.Write(data)
+		}
+	} else if strings.HasPrefix(url, "/read") {
+		url = url[len("/read"):]
+		data, err := fsRead(url, 0, -1, h.dht)
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte(err.Error()))
+			log.Println(err)
+		} else {
+			rw.WriteHeader(http.StatusOK)
+			rw.Write(data)
+		}
+	} else if strings.HasPrefix(url, "/write") {
+		url = url[len("/write"):]
+
+		indata, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte(err.Error()))
+			log.Println(err)
+		}
+
+		err = fsWrite(url, 0, indata, h.dht)
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte(err.Error()))
+			log.Println(err)
+		} else {
+			rw.WriteHeader(http.StatusOK)
+			rw.Write([]byte("Successfully uploaded"))
+		}
+	}
 }
 
 func (h *proxyHandler) uploadHandler(rw http.ResponseWriter, req *http.Request) {

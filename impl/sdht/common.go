@@ -19,7 +19,7 @@ const numBuckets = 160
 type ID [20]byte
 
 func (id ID) String() string {
-	return id.toBitString()[:10]
+	return id.toBitString()[:6]
 }
 
 func unmarshalID(id string) (ID, error) {
@@ -40,7 +40,7 @@ func unmarshalID(id string) (ID, error) {
 }
 
 func marshalID(id ID) string {
-	return hex.EncodeToString(id[:])
+	return hex.EncodeToString(id[:])[:6]
 }
 
 func marshal(data interface{}) []byte {
