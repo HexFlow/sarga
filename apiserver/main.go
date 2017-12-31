@@ -9,6 +9,7 @@ import (
 	"github.com/sakshamsharma/sarga/common/iface"
 	"github.com/sakshamsharma/sarga/impl/httpnet"
 	"github.com/sakshamsharma/sarga/impl/sdht"
+	"github.com/sakshamsharma/sarga/impl/slog"
 )
 
 type ServerArgs struct {
@@ -16,6 +17,8 @@ type ServerArgs struct {
 
 	Seeds          []string
 	RandomDHTCount int
+
+	DHTLogLevel string
 }
 
 func Init() error {
@@ -39,8 +42,12 @@ func Init() error {
 		return err
 	}
 
+	if args.DHTLogLevel != "" {
+		sdht.SetLog(slog.GetLevelFromString(args.DHTLogLevel))
+	}
+
 	dhtInst := &sdht.SDHT{}
-	if err = dhtInst.Init(iface.Address{"0.0.0.0", 8080},
+	if err = dhtInst.Init(iface.Address{IP: "0.0.0.0", Port: 8080},
 		seeds, &httpnet.HTTPNet{}); err != nil {
 		return err
 	}
@@ -52,9 +59,11 @@ func Init() error {
 
 		for i := 1; i <= args.RandomDHTCount; i++ {
 			nodeDHT := &sdht.SDHT{}
-			addr := iface.Address{"0.0.0.0", rand.Intn(3000) + 4000}
+			addr := iface.Address{IP: "0.0.0.0", Port: rand.Intn(3000) + 4000}
 			ports = append(ports, addr.Port)
-			nodeDHT.Init(addr, []iface.Address{{"0.0.0.0", ports[rand.Intn(i)]}}, &httpnet.HTTPNet{})
+			nodeDHT.Init(addr,
+				[]iface.Address{{IP: "0.0.0.0", Port: ports[rand.Intn(i)]}},
+				&httpnet.HTTPNet{})
 		}
 		time.Sleep(2 * time.Second)
 	}

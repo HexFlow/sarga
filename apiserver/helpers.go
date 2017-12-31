@@ -12,28 +12,15 @@ import (
 	"github.com/sakshamsharma/sarga/common/dht"
 )
 
-const ChunkSizeBytes = 1024 * 1024
-
-type dataChunk struct {
-	key             string
-	data            []byte
-	keyWithDataHash string
-}
-
-func hashStr(s string) string {
-	h := sha1.New()
-	io.WriteString(h, s)
-	return hex.EncodeToString(h.Sum(nil))
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+const ChunkSizeBytes = 1024 * 1024 // 1 MB
 
 func uploadFile(fileName string, data []byte, dht dht.DHT) error {
+	type dataChunk struct {
+		key             string
+		data            []byte
+		keyWithDataHash string
+	}
+
 	var chunks []dataChunk
 	var err error
 	dataLen := len(data)
@@ -106,4 +93,24 @@ func downloadFile(fileName string, dht dht.DHT) ([]byte, error) {
 	}
 
 	return result, nil
+}
+
+func hashStr(s string) string {
+	h := sha1.New()
+	io.WriteString(h, s)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a < b {
+		return b
+	}
+	return a
 }

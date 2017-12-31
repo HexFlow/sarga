@@ -4,11 +4,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sakshamsharma/sarga/impl/slog"
 )
 
 const dhtK = 1
@@ -119,7 +120,7 @@ func (b *bucket) insert(owner ID, node Peer) {
 
 	if len(b.peers) < dhtK {
 		if _, ok := b.peers[node.ID]; !ok {
-			log.Println(owner, "added peer", node.ID)
+			log.Println(slog.VVerbose, owner, "added peer", node.ID)
 			b.peers[node.ID] = node
 		}
 	} else {

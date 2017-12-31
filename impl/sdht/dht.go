@@ -3,12 +3,12 @@ package sdht
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"sort"
 	"time"
 
 	"github.com/sakshamsharma/sarga/common/dht"
 	"github.com/sakshamsharma/sarga/common/iface"
+	"github.com/sakshamsharma/sarga/impl/slog"
 )
 
 // SDHT is a minimal implementation of a DHT (dht.DHT) to be used with sarga.
@@ -24,6 +24,15 @@ type SDHT struct {
 
 var _ dht.DHT = &SDHT{}
 
+var log = slog.SLog{
+	Level: slog.Error,
+}
+
+// SetLog sets the logging level for the whole package.
+func SetLog(level slog.Level) {
+	log.Level = level
+}
+
 // TODO: This should not remain global if we want to allow multiple instances
 // of SDHT.
 var network iface.Net
@@ -36,17 +45,17 @@ func (d *SDHT) Init(addr iface.Address, seeds []iface.Address, net iface.Net) er
 	d.buckets = initBuckets()
 	network = net
 
-	log.Println(d.id, "starting init at", addr)
+	log.Println(slog.Debug, d.id, "starting init at", addr)
 	go d.serve()
 
 	for _, seed := range seeds {
 		root := &Peer{ID{}, seed}
 		if err := root.Ping(); err != nil {
-			log.Printf("%v errored while pinging %v: %v", d.id, root.ID, err)
+			log.Printf(slog.Debug, "%v errored while pinging %v: %v", d.id, root.ID, err)
 			continue
 		}
 		// If ping was successful, root.ID should now be filled.
-		log.Println(d.id, "realized about", root.ID)
+		log.Println(slog.Debug, d.id, "realized about", root.ID)
 
 		d.buckets.insert(d.id, *root)
 		d.findClosestPeers(marshalID(d.id), true)
@@ -59,7 +68,7 @@ func (d *SDHT) Init(addr iface.Address, seeds []iface.Address, net iface.Net) er
 			}
 
 			reprKey := d.getRepresentativeBucketID(i)
-			log.Println(d.id, "trying to fill bucket", i, "using key", reprKey)
+			log.Println(slog.Verbose, d.id, "trying to fill bucket", i, "using key", reprKey)
 			d.findClosestPeers(marshalID(reprKey), true)
 		}
 	}
@@ -100,7 +109,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 			return marshal(findValueResp{Error: err})
 		}
 		keyID, _ := unmarshalID(req.Key)
-		fmt.Println(d.id, "was asked about FindValue for", keyID)
+		log.Println(slog.Verbose, d.id, "was asked about FindValue for", keyID)
 		d.setAliveTime(req.ID)
 		out, err := d.FindValue(req.Key)
 		if err != nil {
@@ -114,7 +123,7 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 			return marshal(findValueResp{Error: err})
 		}
 		keyID, _ := unmarshalID(req.Key)
-		fmt.Println(d.id, "was asked about FindValueLocal for", keyID)
+		log.Println(slog.Verbose, d.id, "was asked about FindValueLocal for", keyID)
 		d.setAliveTime(req.ID)
 		out, peers, err := d.findValue(req.Key)
 		if err != nil {
@@ -137,18 +146,18 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 	case "store":
 		req := storeReq{}
 		if err := json.Unmarshal(data, &req); err != nil {
-			log.Println(err)
+			log.Println(slog.Error, err)
 			return nil
 		}
 		d.setAliveTime(req.ID)
 		keyID, _ := unmarshalID(req.Key)
-		log.Println(d.id, "is storing key", keyID)
+		log.Println(slog.Verbose, d.id, "is storing key", keyID)
 		d.store.Set(req.Key, []byte(req.Data))
 
 	case "exit":
 		req := exitReq{}
 		if err := json.Unmarshal(data, &req); err != nil {
-			log.Println(err)
+			log.Println(slog.Error, err)
 			return nil
 		}
 		d.recordExit(req.ID)
@@ -162,14 +171,14 @@ func (d *SDHT) Respond(action string, data []byte) []byte {
 		})
 
 	default:
-		log.Println("Request not recognized:", action)
+		log.Println(slog.Error, "Request not recognized:", action)
 	}
 	return nil
 }
 
 func (d *SDHT) StoreValue(key string, data []byte) error {
 	keyID, _ := unmarshalID(key)
-	log.Println(d.id, "Sending StoreValue", keyID)
+	log.Println(slog.Verbose, d.id, "Sending StoreValue", keyID)
 	peers, err := d.findClosestPeers(key, false)
 	if err != nil {
 		return err
@@ -186,7 +195,7 @@ func (d *SDHT) StoreValue(key string, data []byte) error {
 
 func (d *SDHT) FindValue(key string) ([]byte, error) {
 	keyID, _ := unmarshalID(key)
-	log.Println(d.id, "wants key", keyID)
+	log.Println(slog.Verbose, d.id, "wants key", keyID)
 	data, peers, err := d.findValue(key)
 	if err != nil {
 		return nil, err
@@ -207,7 +216,7 @@ func (d *SDHT) FindValue(key string) ([]byte, error) {
 				return dataP, nil
 			}
 			if err != nil {
-				log.Println(d.id, "got an error contacting peer:", err)
+				log.Println(slog.Error, d.id, "got an error contacting peer:", err)
 			} else {
 				hopPeers = append(hopPeers, peersP...)
 			}
@@ -242,6 +251,7 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 	sort.Slice(peers, func(i, j int) bool {
 		return isBetter(keyID, peers[i], peers[j])
 	})
+	log.Println(slog.Verbose, d.id, "has peers", peers)
 
 	var peersUniq map[ID]Peer
 
@@ -255,7 +265,7 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 		for _, p := range peersUniq {
 			peersP, err := p.FindNode(d.getPeer(), key)
 			if err != nil {
-				log.Println(d.id, "got an error contacting peer for findNode:", err)
+				log.Println(slog.Verbose, d.id, "got an error contacting peer for findNode:", err)
 			}
 			hopPeers = append(hopPeers, peersP...)
 		}
@@ -288,11 +298,11 @@ func (d *SDHT) findClosestPeers(key string, insert bool) ([]Peer, error) {
 func (d *SDHT) findValue(key string) ([]byte, []Peer, error) {
 	//fmt.Println("findValue", marshalID(d.id), key)
 	if val, err := d.store.Get(key); err == nil {
-		fmt.Println(marshalID(d.id), "GOT THE VALUE FOR", key)
+		log.Println(slog.Verbose, marshalID(d.id), "GOT THE VALUE FOR", key)
 		return val, nil, nil
 	}
 	keyID, _ := unmarshalID(key)
-	fmt.Println(d.id, "DID NOT GET THE VALUE FOR", keyID)
+	log.Println(slog.VVerbose, d.id, "DID NOT GET THE VALUE FOR", keyID)
 	peers, err := d.findNode(key)
 	if err == nil {
 		return nil, peers, nil
